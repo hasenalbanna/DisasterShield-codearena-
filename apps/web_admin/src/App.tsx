@@ -19,7 +19,13 @@ import {
   Moon, 
   Filter,
   Truck,
-  Building2
+  Building2,
+  BarChart2,
+  ScanLine,
+  Download,
+  UserCog,
+  ShieldCheck,
+  FileClock
 } from 'lucide-react';
 import { 
   subscribeToHazards, 
@@ -33,6 +39,11 @@ import { DispatchCrewModal } from './components/DispatchCrewModal';
 import { AiAggregatorConsole } from './components/AiAggregatorConsole';
 import { ReliefDeskView } from './components/ReliefDeskView';
 import { CouncilTicketsView } from './components/CouncilTicketsView';
+import { TacticalRadarView } from './components/TacticalRadarView';
+import { AnalyticsDashboard } from './components/AnalyticsDashboard';
+import { AdminManagementView } from './components/AdminManagementView';
+import { UserManagementView } from './components/UserManagementView';
+import { LogonActivitiesView } from './components/LogonActivitiesView';
 import type { HazardDocument } from './types/models';
 import './App.css';
 
@@ -146,7 +157,7 @@ const initialHazards: HazardDocument[] = [
 export function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [hazards, setHazards] = useState<HazardDocument[]>(initialHazards);
-  const [activeTab, setActiveTab] = useState<'overview' | 'map' | 'triage' | 'ai' | 'relief' | 'tickets'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'map' | 'triage' | 'ai' | 'relief' | 'tickets' | 'radar' | 'analytics' | 'admins' | 'users' | 'logs'>('overview');
   const [selectedFilter, setSelectedFilter] = useState<string>('ALL');
   const [isFirebaseSynced, setIsFirebaseSynced] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -224,6 +235,25 @@ export function App() {
     setActiveTab('map');
   };
 
+  const handleExportCSV = () => {
+    const headers = 'Hazard ID,Status,Category,Ward,Reporter,Urgency Score,AI Confidence,Created At\n';
+    const rows = hazards.map(h => 
+      `${h.hazardId},${h.status},${h.category},"${h.ward}","${h.reporterName || 'Unknown'}",${h.aiAnalysis?.urgencyScore || ''},${h.aiAnalysis?.imageConfidence || ''},${h.createdAt}`
+    ).join('\n');
+    const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `disastershield_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportPDF = () => {
+    window.print();
+  };
+
   const filteredHazards = selectedFilter === 'ALL' 
     ? hazards 
     : hazards.filter(h => h.status === selectedFilter);
@@ -290,436 +320,384 @@ export function App() {
     );
   };
 
+  // Helper to build nav button className
+  const navClass = (tab: string, special?: string) => {
+    if (special === 'radar') return `nav-btn${activeTab === tab ? ' active-radar' : ''}`;
+    return `nav-btn${activeTab === tab ? ' active' : ''}`;
+  };
+
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-      {/* Sidebar Minimalist */}
-      <aside style={{ 
-        width: '260px', 
-        borderRight: '1px solid var(--border-subtle)', 
-        padding: '24px 16px', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        gap: '24px',
-        backgroundColor: 'var(--bg-secondary)',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ 
-              width: '32px', 
-              height: '32px', 
-              borderRadius: '6px', 
-              background: 'var(--btn-bg)', 
-              color: 'var(--btn-text)',
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center' 
-            }}>
-              <ShieldAlert style={{ width: '18px', height: '18px' }} />
+    <div className="app-shell">
+
+      {/* ── SIDEBAR ───────────────────────────────────── */}
+      <aside className="sidebar">
+
+        {/* Brand */}
+        <div className="sidebar-brand">
+          <div className="sidebar-logo">
+            <div className="logo-icon">
+              <ShieldAlert style={{ width: '18px', height: '18px', color: '#fff' }} />
             </div>
-            <div>
-              <h1 style={{ fontSize: '15px', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>DisasterShield</h1>
-              <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Command v6.0</span>
+            <div className="logo-text">
+              <h1>DisasterShield</h1>
+              <span>Command v6.0</span>
             </div>
           </div>
-
-          <button 
-            onClick={toggleTheme}
-            title="Toggle Light / Dark mode"
-            style={{ 
-              width: '32px', 
-              height: '32px', 
-              borderRadius: '6px', 
-              background: 'var(--bg-card)', 
-              color: 'var(--text-primary)',
-              border: '1px solid var(--border-subtle)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            {theme === 'light' ? <Moon style={{ width: '15px', height: '15px' }} /> : <Sun style={{ width: '15px', height: '15px' }} />}
+          <button className="theme-toggle" onClick={toggleTheme} title="Toggle Light / Dark mode">
+            {theme === 'light'
+              ? <Moon style={{ width: '14px', height: '14px' }} />
+              : <Sun  style={{ width: '14px', height: '14px' }} />}
           </button>
         </div>
 
-        {/* Primary Navigation Tabs */}
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <button 
-            onClick={() => setActiveTab('overview')}
-            style={{ 
-              display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '6px', 
-              background: activeTab === 'overview' ? 'var(--btn-bg)' : 'transparent',
-              color: activeTab === 'overview' ? 'var(--btn-text)' : 'var(--text-secondary)',
-              border: 'none', textAlign: 'left', fontWeight: 600, fontSize: '13px'
-            }}
-          >
-            <Activity style={{ width: '16px', height: '16px' }} />
-            <span>Overview</span>
+        {/* Nav */}
+        <nav className="sidebar-nav">
+          <div className="nav-section-label">Operations</div>
+
+          <button className={navClass('overview')} onClick={() => setActiveTab('overview')}>
+            <Activity style={{ width: '16px', height: '16px' }} /><span>Overview</span>
+          </button>
+          <button className={navClass('map')} onClick={() => setActiveTab('map')}>
+            <MapPin style={{ width: '16px', height: '16px' }} /><span>Geospatial Radar</span>
+          </button>
+          <button className={navClass('triage')} onClick={() => setActiveTab('triage')}>
+            <Truck style={{ width: '16px', height: '16px' }} /><span>Ward Triage &amp; Dispatch</span>
+          </button>
+          <button className={navClass('ai')} onClick={() => setActiveTab('ai')}>
+            <Cpu style={{ width: '16px', height: '16px' }} /><span>AI Aggregator</span>
+          </button>
+          <button className={navClass('relief')} onClick={() => setActiveTab('relief')}>
+            <Building2 style={{ width: '16px', height: '16px' }} /><span>Relief &amp; Shelters</span>
+          </button>
+          <button className={navClass('tickets')} onClick={() => setActiveTab('tickets')}>
+            <FileText style={{ width: '16px', height: '16px' }} /><span>Council Tickets</span>
           </button>
 
-          <button 
-            onClick={() => setActiveTab('map')}
-            style={{ 
-              display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '6px', 
-              background: activeTab === 'map' ? 'var(--btn-bg)' : 'transparent',
-              color: activeTab === 'map' ? 'var(--btn-text)' : 'var(--text-secondary)',
-              border: 'none', textAlign: 'left', fontWeight: 600, fontSize: '13px'
-            }}
-          >
-            <MapPin style={{ width: '16px', height: '16px' }} />
-            <span>Geospatial Radar</span>
+          <div className="nav-divider" />
+          <div className="nav-section-label">Intelligence</div>
+
+          <button className={navClass('radar', 'radar')} onClick={() => setActiveTab('radar')}>
+            <ScanLine style={{ width: '16px', height: '16px' }} /><span>Tactical Radar</span>
+          </button>
+          <button className={navClass('analytics')} onClick={() => setActiveTab('analytics')}>
+            <BarChart2 style={{ width: '16px', height: '16px' }} /><span>Analytics</span>
           </button>
 
-          <button 
-            onClick={() => setActiveTab('triage')}
-            style={{ 
-              display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '6px', 
-              background: activeTab === 'triage' ? 'var(--btn-bg)' : 'transparent',
-              color: activeTab === 'triage' ? 'var(--btn-text)' : 'var(--text-secondary)',
-              border: 'none', textAlign: 'left', fontWeight: 600, fontSize: '13px'
-            }}
-          >
-            <Truck style={{ width: '16px', height: '16px' }} />
-            <span>Ward Triage & Dispatch</span>
-          </button>
+          <div className="nav-divider" />
+          <div className="nav-section-label">System Admin</div>
 
-          <button 
-            onClick={() => setActiveTab('ai')}
-            style={{ 
-              display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '6px', 
-              background: activeTab === 'ai' ? 'var(--btn-bg)' : 'transparent',
-              color: activeTab === 'ai' ? 'var(--btn-text)' : 'var(--text-secondary)',
-              border: 'none', textAlign: 'left', fontWeight: 600, fontSize: '13px'
-            }}
-          >
-            <Cpu style={{ width: '16px', height: '16px' }} />
-            <span>AI Aggregator</span>
+          <button className={navClass('admins')} onClick={() => setActiveTab('admins')}>
+            <ShieldCheck style={{ width: '16px', height: '16px' }} /><span>Administrators</span>
           </button>
-
-          <button 
-            onClick={() => setActiveTab('relief')}
-            style={{ 
-              display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '6px', 
-              background: activeTab === 'relief' ? 'var(--btn-bg)' : 'transparent',
-              color: activeTab === 'relief' ? 'var(--btn-text)' : 'var(--text-secondary)',
-              border: 'none', textAlign: 'left', fontWeight: 600, fontSize: '13px'
-            }}
-          >
-            <Building2 style={{ width: '16px', height: '16px' }} />
-            <span>Relief & Shelters</span>
+          <button className={navClass('users')} onClick={() => setActiveTab('users')}>
+            <UserCog style={{ width: '16px', height: '16px' }} /><span>User Management</span>
           </button>
-
-          <button 
-            onClick={() => setActiveTab('tickets')}
-            style={{ 
-              display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '6px', 
-              background: activeTab === 'tickets' ? 'var(--btn-bg)' : 'transparent',
-              color: activeTab === 'tickets' ? 'var(--btn-text)' : 'var(--text-secondary)',
-              border: 'none', textAlign: 'left', fontWeight: 600, fontSize: '13px'
-            }}
-          >
-            <FileText style={{ width: '16px', height: '16px' }} />
-            <span>Council Tickets</span>
+          <button className={navClass('logs')} onClick={() => setActiveTab('logs')}>
+            <FileClock style={{ width: '16px', height: '16px' }} /><span>Logon Activities</span>
           </button>
         </nav>
 
-        {/* Database & Cloud Sync */}
-        <div style={{ marginTop: 'auto', padding: '14px', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981' }} />
-            <span style={{ fontSize: '11px', fontWeight: 700 }}>Firebase Connected</span>
+        {/* Firebase Status */}
+        <div className="sidebar-footer">
+          <div className="db-status-card">
+            <div className="db-status-row">
+              <span className="db-dot" />
+              <span className="db-label">Firebase Connected</span>
+            </div>
+            <p className="db-id">disastershield-a23cf</p>
+            <button
+              onClick={handleSyncToFirebase}
+              disabled={isSyncing}
+              className="btn-secondary"
+              style={{ width: '100%', justifyContent: 'center' }}
+            >
+              {isSyncing
+                ? <RefreshCw style={{ width: '12px', height: '12px' }} className="animate-spin" />
+                : <Database  style={{ width: '12px', height: '12px' }} />}
+              <span>{isFirebaseSynced ? 'Synced ✓' : 'Sync Demo Data'}</span>
+            </button>
           </div>
-          <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: '0 0 10px 0', fontFamily: 'var(--font-mono)' }}>
-            disastershield-a23cf
-          </p>
-          <button
-            onClick={handleSyncToFirebase}
-            disabled={isSyncing}
-            className="btn-secondary"
-            style={{ width: '100%', justifyContent: 'center' }}
-          >
-            {isSyncing ? <RefreshCw style={{ width: '12px', height: '12px' }} className="animate-spin" /> : <Database style={{ width: '12px', height: '12px' }} />}
-            <span>{isFirebaseSynced ? 'Firebase Synced' : 'Sync Demo Data'}</span>
-          </button>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main style={{ flex: 1, padding: '32px', overflowY: 'auto' }}>
-        {/* Top Telemetry Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px' }}>
-          <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, margin: '0 0 4px 0', letterSpacing: '-0.02em' }}>
-              {activeTab === 'overview' && 'Municipal Emergency Operations'}
-              {activeTab === 'map' && 'Geospatial Radar & Live Heatmap'}
-              {activeTab === 'triage' && 'Ward Incident Triage & Field Dispatch'}
-              {activeTab === 'ai' && 'Hazard Aggregator AI Multi-Layer Engine'}
-              {activeTab === 'relief' && 'Municipal Relief Desk & Shelter Allocations'}
-              {activeTab === 'tickets' && 'Municipal Authority Work Orders'}
+      {/* ── MAIN ──────────────────────────────────────── */}
+      <div className="main-content">
+
+        {/* Sticky Top Header */}
+        <header className="top-header">
+          <div className="header-left">
+            <h2 className="page-title">
+              {activeTab === 'overview'  && 'Municipal Emergency Operations'}
+              {activeTab === 'map'       && 'Geospatial Radar & Live Heatmap'}
+              {activeTab === 'triage'    && 'Ward Incident Triage & Field Dispatch'}
+              {activeTab === 'ai'        && 'Hazard Aggregator AI Multi-Layer Engine'}
+              {activeTab === 'relief'    && 'Municipal Relief Desk & Shelter Allocations'}
+              {activeTab === 'tickets'   && 'Municipal Authority Work Orders'}
+              {activeTab === 'radar'     && 'Tactical Radar — Live Contact Tracking'}
+              {activeTab === 'analytics' && 'Analytics & Data Intelligence Dashboard'}
+              {activeTab === 'admins'    && 'System Administrators'}
+              {activeTab === 'users'     && 'User Management & Trust Scores'}
+              {activeTab === 'logs'      && 'Security Audit & Logon Activities'}
             </h2>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
-              AI Aggregator Pipeline • Real-Time Dispatch System • Metropolitan Zone 01
+            <p className="page-subtitle">
+              AI Aggregator Pipeline &bull; Real-Time Dispatch System &bull; Metropolitan Zone 01
             </p>
           </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button 
-              onClick={() => setActiveTab('map')}
-              className="btn-secondary"
-            >
-              <Radio style={{ width: '14px', height: '14px', color: '#EF4444' }} className="animate-pulse" />
-              <span>1 Live SOS Signal</span>
+
+          <div className="header-actions">
+            <button className="btn-secondary" onClick={handleExportCSV} title="Export as CSV/Excel">
+              <Download style={{ width: '14px', height: '14px' }} />
+              <span>CSV</span>
             </button>
-            <button 
+            <button className="btn-secondary" onClick={handleExportPDF} title="Export as PDF">
+              <FileText style={{ width: '14px', height: '14px' }} />
+              <span>PDF</span>
+            </button>
+            <button className="sos-badge" onClick={() => setActiveTab('map')}>
+              <Radio style={{ width: '13px', height: '13px' }} className="animate-pulse" />
+              <span>1 Live SOS</span>
+            </button>
+            <button
+              className="btn-primary"
               onClick={() => {
                 const urgent = hazards.find(h => (h.aiAnalysis?.urgencyScore ?? 0) >= 7.5) || hazards[0];
                 if (urgent) handleOpenDispatchModal(urgent);
               }}
-              className="btn-primary"
             >
-              <span>Dispatch Field Crew</span>
+              <span>Dispatch Crew</span>
               <ArrowUpRight style={{ width: '14px', height: '14px' }} />
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* TAB 1: OVERVIEW */}
-        {activeTab === 'overview' && (
-          <div>
-            {/* 4 Stat Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
-              <div className="minimal-card" style={{ padding: '18px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Active Hazards</span>
-                  <AlertTriangle style={{ width: '16px', height: '16px' }} />
+        {/* Page Content */}
+        <main className="content-area" key={activeTab}>
+
+          {/* ── TAB 1: OVERVIEW ──────────────────────── */}
+          {activeTab === 'overview' && (
+            <div>
+              {/* 4 Stat Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '16px', marginBottom: '28px' }}>
+
+                <div className="stat-card animate-fade-up">
+                  <div className="stat-icon" style={{ background: 'rgba(239,68,68,0.1)' }}>
+                    <AlertTriangle style={{ width: '18px', height: '18px', color: '#EF4444' }} />
+                  </div>
+                  <div className="stat-label">Active Hazards</div>
+                  <div className="stat-value" style={{ color: '#EF4444' }}>{hazards.length}</div>
+                  <div className="stat-sub">Live in Firestore</div>
                 </div>
-                <div style={{ fontSize: '26px', fontWeight: 800 }}>{hazards.length}</div>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Live in Firestore</span>
+
+                <div className="stat-card animate-fade-up anim-delay-1">
+                  <div className="stat-icon" style={{ background: 'rgba(91,139,255,0.1)' }}>
+                    <Cpu style={{ width: '18px', height: '18px', color: 'var(--accent)' }} />
+                  </div>
+                  <div className="stat-label">AI Confidence Avg</div>
+                  <div className="stat-value" style={{ color: 'var(--accent)' }}>
+                    {hazards.length > 0
+                      ? `${(hazards.reduce((acc, h) => acc + (h.aiAnalysis?.imageConfidence || 0), 0) / hazards.length * 100).toFixed(1)}%`
+                      : '92.4%'}
+                  </div>
+                  <div className="stat-sub">EXIF &amp; DBSCAN verified</div>
+                </div>
+
+                <div className="stat-card animate-fade-up anim-delay-2">
+                  <div className="stat-icon" style={{ background: 'rgba(16,185,129,0.1)' }}>
+                    <Users style={{ width: '18px', height: '18px', color: '#10B981' }} />
+                  </div>
+                  <div className="stat-label">Active Field Crews</div>
+                  <div className="stat-value" style={{ color: '#10B981' }}>18 / 24</div>
+                  <div className="stat-sub">6 standby units</div>
+                </div>
+
+                <div className="stat-card animate-fade-up anim-delay-3">
+                  <div className="stat-icon" style={{ background: 'rgba(245,158,11,0.1)' }}>
+                    <FileText style={{ width: '18px', height: '18px', color: '#F59E0B' }} />
+                  </div>
+                  <div className="stat-label">Council Tickets</div>
+                  <div className="stat-value" style={{ color: '#F59E0B' }}>
+                    {hazards.filter(h => h.status === 'COUNCIL_TICKET').length}
+                  </div>
+                  <div className="stat-sub">Auto-routed</div>
+                </div>
               </div>
 
-              <div className="minimal-card" style={{ padding: '18px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>AI Confidence Avg</span>
-                  <Cpu style={{ width: '16px', height: '16px' }} />
+              {/* Geospatial Banner */}
+              <div
+                onClick={() => setActiveTab('map')}
+                className="minimal-card animate-fade-up"
+                style={{
+                  padding: '20px 24px',
+                  marginBottom: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  background: 'linear-gradient(135deg, var(--accent-light), transparent)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'var(--btn-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px var(--accent-glow)' }}>
+                    <MapPin style={{ width: '20px', height: '20px', color: '#fff' }} />
+                  </div>
+                  <div>
+                    <h4 style={{ fontSize: '14px', fontWeight: 700, margin: '0 0 3px', letterSpacing: '-0.01em' }}>
+                      Open Geospatial Command Radar &amp; Heatmaps
+                    </h4>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>
+                      Visualize spatial density rings, multi-ward geofencing, and standby crew units.
+                    </p>
+                  </div>
                 </div>
-                <div style={{ fontSize: '26px', fontWeight: 800 }}>
-                  {hazards.length > 0 
-                    ? `${(hazards.reduce((acc, h) => acc + (h.aiAnalysis?.imageConfidence || 0), 0) / hazards.length * 100).toFixed(1)}%` 
-                    : '92.4%'}
-                </div>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>EXIF & DBSCAN checked</span>
+                <button className="btn-primary" style={{ pointerEvents: 'none' }}>
+                  <span>Launch Map</span>
+                  <ArrowUpRight style={{ width: '14px', height: '14px' }} />
+                </button>
               </div>
 
-              <div className="minimal-card" style={{ padding: '18px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Active Field Crews</span>
-                  <Users style={{ width: '16px', height: '16px' }} />
-                </div>
-                <div style={{ fontSize: '26px', fontWeight: 800 }}>18 / 24</div>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>6 standby units</span>
-              </div>
-
-              <div className="minimal-card" style={{ padding: '18px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Council Tickets</span>
-                  <FileText style={{ width: '16px', height: '16px' }} />
-                </div>
-                <div style={{ fontSize: '26px', fontWeight: 800 }}>
-                  {hazards.filter(h => h.status === 'COUNCIL_TICKET').length}
-                </div>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Auto-routed</span>
-              </div>
-            </div>
-
-            {/* Quick Geospatial Teaser Banner */}
-            <div 
-              onClick={() => setActiveTab('map')}
-              className="minimal-card"
-              style={{
-                padding: '20px',
-                marginBottom: '28px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                cursor: 'pointer',
-                background: 'var(--bg-secondary)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: 'var(--btn-bg)', color: 'var(--btn-text)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <MapPin style={{ width: '20px', height: '20px' }} />
-                </div>
-                <div>
-                  <h4 style={{ fontSize: '14px', fontWeight: 700, margin: '0 0 2px 0' }}>
-                    Open Geospatial Command Radar & Heatmaps
-                  </h4>
-                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>
-                    Visualize spatial density rings, multi-ward geofencing, and standby crew units across metropolitan zone.
-                  </p>
-                </div>
-              </div>
-              <button className="btn-primary" style={{ pointerEvents: 'none' }}>
-                <span>Launch Map</span>
-                <ArrowUpRight style={{ width: '14px', height: '14px' }} />
-              </button>
-            </div>
-
-            {/* Hazard Triage Summary Feed */}
-            <section className="minimal-card" style={{ padding: '24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <div>
-                  <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>
-                    Frontline Hazard Ingestion Feed
-                  </h3>
-                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
-                    Live AI scoring • 4-channel routing: Need Info • Published • Area Alert • Council Ticket
-                  </p>
+              {/* Hazard Feed */}
+              <section className="minimal-card animate-fade-up" style={{ padding: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, letterSpacing: '-0.01em' }}>
+                      Frontline Hazard Ingestion Feed
+                    </h3>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '4px 0 0' }}>
+                      Live AI scoring &bull; 4-channel routing: Need Info &bull; Published &bull; Area Alert &bull; Council Ticket
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <Filter style={{ width: '13px', height: '13px', color: 'var(--text-muted)', marginRight: '2px' }} />
+                    {['ALL', 'AREA_ALERT', 'COUNCIL_TICKET', 'PUBLISHED', 'NEED_MORE_INFO'].map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => setSelectedFilter(f)}
+                        style={{
+                          padding: '5px 10px',
+                          borderRadius: '20px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          background: selectedFilter === f ? 'var(--btn-bg)' : 'var(--btn-secondary-bg)',
+                          color: selectedFilter === f ? 'var(--btn-text)' : 'var(--text-secondary)',
+                          border: `1px solid ${selectedFilter === f ? 'transparent' : 'var(--border-subtle)'}`,
+                          cursor: 'pointer',
+                          transition: 'var(--transition)',
+                        }}
+                      >
+                        {f === 'ALL' ? 'All' : f.replace(/_/g, ' ')}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                {/* Filter Buttons */}
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                  <Filter style={{ width: '14px', height: '14px', color: 'var(--text-muted)', marginRight: '4px' }} />
-                  {['ALL', 'AREA_ALERT', 'COUNCIL_TICKET', 'PUBLISHED', 'NEED_MORE_INFO'].map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => setSelectedFilter(f)}
-                      style={{
-                        padding: '6px 10px',
-                        borderRadius: '6px',
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        background: selectedFilter === f ? 'var(--btn-bg)' : 'var(--bg-secondary)',
-                        color: selectedFilter === f ? 'var(--btn-text)' : 'var(--text-secondary)',
-                        border: '1px solid var(--border-subtle)',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {f === 'ALL' ? 'All' : f.replace('_', ' ')}
-                    </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {filteredHazards.map((h) => (
+                    <div key={h.hazardId} className="feed-row">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                        <div style={{
+                          padding: '9px',
+                          borderRadius: '10px',
+                          background: 'var(--bg-card)',
+                          border: '1px solid var(--border-subtle)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}>
+                          {getCategoryIcon(h.category)}
+                        </div>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                            <span style={{ fontWeight: 700, fontSize: '13px' }}>{h.ward}</span>
+                            <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{h.hazardId}</span>
+                            {h.reporterName && (
+                              <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>• {h.reporterName}</span>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                            <span>Urgency <strong>{h.aiAnalysis?.urgencyScore || 'N/A'}/10</strong></span>
+                            <span>AI <strong>{((h.aiAnalysis?.imageConfidence || 0) * 100).toFixed(0)}%</strong></span>
+                            <span>Cluster <strong>{h.aiAnalysis?.clusterCount || 1}</strong></span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                              <Clock style={{ width: '10px', height: '10px' }} /> {h.createdAt.slice(11, 16)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {getStatusBadge(h.status)}
+                        <button onClick={() => handleOpenDispatchModal(h)} className="btn-primary" style={{ padding: '6px 12px', fontSize: '11px' }}>
+                          <Truck style={{ width: '12px', height: '12px' }} /><span>Dispatch</span>
+                        </button>
+                        <button onClick={() => handleViewOnMap(h)} className="btn-secondary" style={{ padding: '6px 10px', fontSize: '11px' }}>
+                          View Map
+                        </button>
+                      </div>
+                    </div>
                   ))}
                 </div>
-              </div>
+              </section>
+            </div>
+          )}
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {filteredHazards.map((h) => (
-                  <div 
-                    key={h.hazardId}
-                    style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'space-between', 
-                      padding: '14px 18px', 
-                      background: 'var(--bg-secondary)', 
-                      borderRadius: '8px',
-                      border: '1px solid var(--border-subtle)'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                      <div style={{ 
-                        padding: '8px', 
-                        borderRadius: '6px', 
-                        background: 'var(--bg-card)', 
-                        border: '1px solid var(--border-subtle)',
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center' 
-                      }}>
-                        {getCategoryIcon(h.category)}
-                      </div>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
-                          <span style={{ fontWeight: 700, fontSize: '13px' }}>{h.ward}</span>
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{h.hazardId}</span>
-                          {h.reporterName && (
-                            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>• reported by {h.reporterName}</span>
-                          )}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                          <span>Urgency: <strong>{h.aiAnalysis?.urgencyScore || 'N/A'}/10</strong></span>
-                          <span>AI Confidence: <strong>{((h.aiAnalysis?.imageConfidence || 0) * 100).toFixed(0)}%</strong></span>
-                          <span>Cluster: <strong>{h.aiAnalysis?.clusterCount || 1} report(s)</strong></span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                            <Clock style={{ width: '11px', height: '11px' }} /> {h.createdAt.slice(11, 16)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+          {/* ── TAB 2: MAP ───────────────────────────── */}
+          {activeTab === 'map' && (
+            <GeospatialCommandMap
+              hazards={hazards}
+              theme={theme}
+              onSelectHazard={(h) => setSelectedMapHazard(h)}
+              selectedHazard={selectedMapHazard}
+              onOpenDispatchModal={(h) => handleOpenDispatchModal(h)}
+              onStatusChange={handleStatusChange}
+            />
+          )}
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      {getStatusBadge(h.status)}
-                      <button 
-                        onClick={() => handleOpenDispatchModal(h)}
-                        className="btn-primary"
-                        style={{ padding: '6px 12px', fontSize: '11px' }}
-                      >
-                        <Truck style={{ width: '12px', height: '12px' }} />
-                        <span>Dispatch</span>
-                      </button>
-                      <button 
-                        onClick={() => handleViewOnMap(h)}
-                        className="btn-secondary"
-                        style={{ padding: '6px 10px', fontSize: '11px' }}
-                      >
-                        <span>View Map</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </div>
-        )}
+          {/* ── TAB 3: TRIAGE ────────────────────────── */}
+          {activeTab === 'triage' && (
+            <WardTriageQueue
+              hazards={hazards}
+              onOpenDispatchModal={(h) => handleOpenDispatchModal(h)}
+              onStatusChange={handleStatusChange}
+              onViewOnMap={(h) => handleViewOnMap(h)}
+            />
+          )}
 
-        {/* TAB 2: GEOSPATIAL MAP & RADAR */}
-        {activeTab === 'map' && (
-          <GeospatialCommandMap
-            hazards={hazards}
-            theme={theme}
-            onSelectHazard={(h) => setSelectedMapHazard(h)}
-            selectedHazard={selectedMapHazard}
-            onOpenDispatchModal={(h) => handleOpenDispatchModal(h)}
-            onStatusChange={handleStatusChange}
-          />
-        )}
+          {/* ── TAB 4: AI ────────────────────────────── */}
+          {activeTab === 'ai' && (
+            <AiAggregatorConsole hazards={hazards} onStatusChange={handleStatusChange} />
+          )}
 
-        {/* TAB 3: WARD TRIAGE & DISPATCH */}
-        {activeTab === 'triage' && (
-          <WardTriageQueue
-            hazards={hazards}
-            onOpenDispatchModal={(h) => handleOpenDispatchModal(h)}
-            onStatusChange={handleStatusChange}
-            onViewOnMap={(h) => handleViewOnMap(h)}
-          />
-        )}
+          {/* ── TAB 5: RELIEF ────────────────────────── */}
+          {activeTab === 'relief' && <ReliefDeskView />}
 
-        {/* TAB 4: AI AGGREGATOR PIPELINE MATRIX */}
-        {activeTab === 'ai' && (
-          <AiAggregatorConsole
-            hazards={hazards}
-            onStatusChange={handleStatusChange}
-          />
-        )}
+          {/* ── TAB 6: TICKETS ───────────────────────── */}
+          {activeTab === 'tickets' && (
+            <CouncilTicketsView hazards={hazards} onStatusChange={handleStatusChange} />
+          )}
 
-        {/* TAB 5: RELIEF DESK & SHELTER ALLOCATIONS */}
-        {activeTab === 'relief' && (
-          <ReliefDeskView />
-        )}
+          {/* ── TAB 7: TACTICAL RADAR ────────────────── */}
+          {activeTab === 'radar' && (
+            <TacticalRadarView hazards={hazards} theme={theme} />
+          )}
 
-        {/* TAB 6: COUNCIL WORK ORDERS & TICKETING */}
-        {activeTab === 'tickets' && (
-          <CouncilTicketsView
-            hazards={hazards}
-            onStatusChange={handleStatusChange}
-          />
-        )}
-      </main>
+          {/* ── TAB 8: ANALYTICS ─────────────────────── */}
+          {activeTab === 'analytics' && (
+            <AnalyticsDashboard hazards={hazards} theme={theme} />
+          )}
 
-      {/* Dispatch Crew Modal Dialog */}
+          {/* ── TAB 9: ADMINS ────────────────────────── */}
+          {activeTab === 'admins' && <AdminManagementView />}
+
+          {/* ── TAB 10: USERS ────────────────────────── */}
+          {activeTab === 'users' && <UserManagementView />}
+
+          {/* ── TAB 11: LOGS ─────────────────────────── */}
+          {activeTab === 'logs' && <LogonActivitiesView />}
+
+        </main>
+      </div>
+
+      {/* Dispatch Modal */}
       <DispatchCrewModal
         isOpen={isDispatchModalOpen}
-        onClose={() => {
-          setIsDispatchModalOpen(false);
-          setTargetDispatchHazard(null);
-        }}
+        onClose={() => { setIsDispatchModalOpen(false); setTargetDispatchHazard(null); }}
         hazard={targetDispatchHazard}
         onDispatch={handleDispatchCrew}
       />
