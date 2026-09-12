@@ -7,6 +7,7 @@ import 'core/providers/app_providers.dart';
 import 'features/map/presentation/screens/live_hazard_map_screen.dart';
 import 'features/incident_reporter/presentation/screens/incident_reporter_screen.dart';
 import 'features/voice_sos/presentation/screens/voice_sos_screen.dart';
+import 'features/voice_sos/presentation/widgets/falcon_voice_modal.dart';
 import 'features/case_tracker/presentation/screens/case_tracker_screen.dart';
 import 'features/profile/presentation/screens/profile_screen.dart';
 
@@ -87,6 +88,34 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
           ],
         ),
         actions: [
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => FalconVoiceModal.show(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFDC2626).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFDC2626).withValues(alpha: 0.4)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.mic, color: Color(0xFFDC2626), size: 15),
+                  SizedBox(width: 4),
+                  Text(
+                    'Hey Falcon',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFFDC2626),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
           IconButton(
             icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
             tooltip: 'Toggle Theme',

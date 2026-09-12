@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../../core/models/hazard_model.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/services/location_service.dart';
+import '../../../voice_sos/presentation/widgets/falcon_voice_modal.dart';
 
 class LiveHazardMapScreen extends ConsumerStatefulWidget {
   const LiveHazardMapScreen({super.key});
@@ -298,15 +299,30 @@ class _LiveHazardMapScreenState extends ConsumerState<LiveHazardMapScreen> {
                       ),
                     ),
 
-                    // Quick Recenter on User GPS
-                    FloatingActionButton.small(
-                      backgroundColor: isDark ? Colors.white : Colors.black,
-                      foregroundColor: isDark ? Colors.black : Colors.white,
-                      elevation: 2,
-                      onPressed: () {
-                        _mapController.move(userCenter, 14.5);
-                      },
-                      child: const Icon(Icons.my_location, size: 18),
+                    // Quick Voice and GPS FABs
+                    Row(
+                      children: [
+                        FloatingActionButton.small(
+                          heroTag: 'fab_falcon_voice',
+                          backgroundColor: const Color(0xFFDC2626),
+                          foregroundColor: Colors.white,
+                          elevation: 3,
+                          tooltip: 'Hey Falcon Voice AI',
+                          onPressed: () => FalconVoiceModal.show(context),
+                          child: const Icon(Icons.mic, size: 18),
+                        ),
+                        const SizedBox(width: 8),
+                        FloatingActionButton.small(
+                          heroTag: 'fab_recenter_gps',
+                          backgroundColor: isDark ? Colors.white : Colors.black,
+                          foregroundColor: isDark ? Colors.black : Colors.white,
+                          elevation: 2,
+                          onPressed: () {
+                            _mapController.move(userCenter, 14.5);
+                          },
+                          child: const Icon(Icons.my_location, size: 18),
+                        ),
+                      ],
                     ),
                   ],
                 ),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/services/location_service.dart';
 import '../../../../core/services/firebase_hazard_service.dart';
+import '../widgets/falcon_voice_modal.dart';
 
 class VoiceSosScreen extends ConsumerStatefulWidget {
   const VoiceSosScreen({super.key});
@@ -239,6 +240,58 @@ class _VoiceSosScreenState extends ConsumerState<VoiceSosScreen>
                         _isListeningVoice = val;
                       });
                     },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Falcon AI Voice Command Card
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF141414) : const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFDC2626).withValues(alpha: 0.35)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDC2626).withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.record_voice_over, color: Color(0xFFDC2626), size: 16),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Falcon AI Voice Dispatch',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Say: "Hey Falcon, I am in danger, report the issue!" to automatically pin your emergency to the live map and dispatch units.',
+                    style: TextStyle(fontSize: 11, height: 1.4, color: isDark ? Colors.white70 : Colors.black87),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFFDC2626)),
+                        foregroundColor: const Color(0xFFDC2626),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: () => FalconVoiceModal.show(context),
+                      icon: const Icon(Icons.mic, size: 16),
+                      label: const Text('Activate Falcon Voice AI', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
                   ),
                 ],
               ),
