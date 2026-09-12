@@ -48,8 +48,6 @@ class MainNavigationShell extends ConsumerStatefulWidget {
 }
 
 class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
-  int _currentIndex = 0;
-
   final List<Widget> _screens = const [
     LiveHazardMapScreen(),
     IncidentReporterScreen(),
@@ -60,6 +58,7 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
 
   @override
   Widget build(BuildContext context) {
+    final currentIndex = ref.watch(bottomNavIndexProvider);
     final currentThemeMode = ref.watch(themeModeProvider);
     final isDark = currentThemeMode == ThemeMode.dark;
 
@@ -99,15 +98,13 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
         ],
       ),
       body: IndexedStack(
-        index: _currentIndex,
+        index: currentIndex,
         children: _screens,
       ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
+        selectedIndex: currentIndex,
         onDestinationSelected: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
+          ref.read(bottomNavIndexProvider.notifier).setIndex(index);
         },
         destinations: const [
           NavigationDestination(

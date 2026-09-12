@@ -89,6 +89,8 @@ class HazardModel {
   final AiAnalysisResult? aiAnalysis;
   final String status;
   final String? assignedCrewId;
+  final double dangerRadiusMeters;
+  final int verificationCount;
   final DateTime createdAt;
 
   const HazardModel({
@@ -106,8 +108,50 @@ class HazardModel {
     this.aiAnalysis,
     required this.status,
     this.assignedCrewId,
+    this.dangerRadiusMeters = 150.0,
+    this.verificationCount = 1,
     required this.createdAt,
   });
+
+  HazardModel copyWith({
+    String? id,
+    String? hazardId,
+    String? reportedBy,
+    String? reporterName,
+    String? category,
+    GeoCoordinates? coordinates,
+    String? geohash,
+    String? ward,
+    String? description,
+    String? mediaUrl,
+    String? audioMemoUrl,
+    AiAnalysisResult? aiAnalysis,
+    String? status,
+    String? assignedCrewId,
+    double? dangerRadiusMeters,
+    int? verificationCount,
+    DateTime? createdAt,
+  }) {
+    return HazardModel(
+      id: id ?? this.id,
+      hazardId: hazardId ?? this.hazardId,
+      reportedBy: reportedBy ?? this.reportedBy,
+      reporterName: reporterName ?? this.reporterName,
+      category: category ?? this.category,
+      coordinates: coordinates ?? this.coordinates,
+      geohash: geohash ?? this.geohash,
+      ward: ward ?? this.ward,
+      description: description ?? this.description,
+      mediaUrl: mediaUrl ?? this.mediaUrl,
+      audioMemoUrl: audioMemoUrl ?? this.audioMemoUrl,
+      aiAnalysis: aiAnalysis ?? this.aiAnalysis,
+      status: status ?? this.status,
+      assignedCrewId: assignedCrewId ?? this.assignedCrewId,
+      dangerRadiusMeters: dangerRadiusMeters ?? this.dangerRadiusMeters,
+      verificationCount: verificationCount ?? this.verificationCount,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -124,6 +168,8 @@ class HazardModel {
     'aiAnalysis': aiAnalysis?.toJson(),
     'status': status,
     'assignedCrewId': assignedCrewId,
+    'dangerRadiusMeters': dangerRadiusMeters,
+    'verificationCount': verificationCount,
     'createdAt': createdAt.toIso8601String(),
   };
 
@@ -144,6 +190,8 @@ class HazardModel {
         : null,
     status: json['status'] as String? ?? 'PENDING_AI_CHECK',
     assignedCrewId: json['assignedCrewId'] as String?,
+    dangerRadiusMeters: (json['dangerRadiusMeters'] as num?)?.toDouble() ?? 150.0,
+    verificationCount: (json['verificationCount'] as num?)?.toInt() ?? 1,
     createdAt: json['createdAt'] != null
         ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
         : DateTime.now(),
