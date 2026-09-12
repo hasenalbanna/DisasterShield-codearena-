@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'core/theme/app_theme.dart';
+import 'core/providers/app_providers.dart';
 import 'features/map/presentation/screens/live_hazard_map_screen.dart';
 import 'features/incident_reporter/presentation/screens/incident_reporter_screen.dart';
 import 'features/voice_sos/presentation/screens/voice_sos_screen.dart';
 import 'features/case_tracker/presentation/screens/case_tracker_screen.dart';
 import 'features/profile/presentation/screens/profile_screen.dart';
-
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,28 +22,32 @@ void main() async {
   runApp(const ProviderScope(child: DisasterShieldApp()));
 }
 
-class DisasterShieldApp extends StatelessWidget {
+class DisasterShieldApp extends ConsumerWidget {
   const DisasterShieldApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+
     return MaterialApp(
       title: 'DisasterShield',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeMode,
       home: const MainNavigationShell(),
     );
   }
 }
 
-class MainNavigationShell extends StatefulWidget {
+class MainNavigationShell extends ConsumerStatefulWidget {
   const MainNavigationShell({super.key});
 
   @override
-  State<MainNavigationShell> createState() => _MainNavigationShellState();
+  ConsumerState<MainNavigationShell> createState() => _MainNavigationShellState();
 }
 
-class _MainNavigationShellState extends State<MainNavigationShell> {
+class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
   int _currentIndex = 0;
 
   final List<Widget> _screens = const [
@@ -56,57 +60,82 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
   @override
   Widget build(BuildContext context) {
+    final currentThemeMode = ref.watch(themeModeProvider);
+    final isDark = currentThemeMode == ThemeMode.dark;
+
     return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                Icons.shield,
+                color: Theme.of(context).colorScheme.onPrimary,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'DisasterShield',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
+            tooltip: 'Toggle Theme',
+            onPressed: () {
+              ref.read(themeModeProvider.notifier).toggle();
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(
-              color: Colors.white.withValues(alpha: 0.08),
-              width: 1,
-            ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.map_outlined),
+            selectedIcon: Icon(Icons.map),
+            label: 'Map',
           ),
-        ),
-        child: NavigationBar(
-          selectedIndex: _currentIndex,
-          backgroundColor: const Color(0xFF0A0E17),
-          indicatorColor: const Color(0xFF2563EB).withValues(alpha: 0.25),
-          onDestinationSelected: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.map_outlined),
-              selectedIcon: Icon(Icons.map, color: Color(0xFF60A5FA)),
-              label: 'Map',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.add_a_photo_outlined),
-              selectedIcon: Icon(Icons.add_a_photo, color: Color(0xFF60A5FA)),
-              label: 'Report',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.sos_outlined, color: Color(0xFFEF4444)),
-              selectedIcon: Icon(Icons.sos, color: Color(0xFFEF4444)),
-              label: 'SOS',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.timeline_outlined),
-              selectedIcon: Icon(Icons.timeline, color: Color(0xFF60A5FA)),
-              label: 'Tracker',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.shield_outlined),
-              selectedIcon: Icon(Icons.shield, color: Color(0xFF60A5FA)),
-              label: 'Safety',
-            ),
-          ],
-        ),
+          NavigationDestination(
+            icon: Icon(Icons.add_a_photo_outlined),
+            selectedIcon: Icon(Icons.add_a_photo),
+            label: 'Report',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.sos_outlined, color: Color(0xFFDC2626)),
+            selectedIcon: Icon(Icons.sos, color: Color(0xFFDC2626)),
+            label: 'SOS',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.timeline_outlined),
+            selectedIcon: Icon(Icons.timeline),
+            label: 'Tracker',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.shield_outlined),
+            selectedIcon: Icon(Icons.shield),
+            label: 'Safety',
+          ),
+        ],
       ),
     );
   }

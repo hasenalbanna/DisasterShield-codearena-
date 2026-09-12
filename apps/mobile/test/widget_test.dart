@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/main.dart';
 
 void main() {
-  testWidgets('DisasterShield smoke test renders navigation shell', (WidgetTester tester) async {
+  testWidgets('DisasterShield renders navigation shell and theme toggle', (WidgetTester tester) async {
     await tester.pumpWidget(const ProviderScope(child: DisasterShieldApp()));
 
-    expect(find.text('Live Hazard Radar'), findsOneWidget);
+    expect(find.text('DisasterShield'), findsOneWidget);
     expect(find.text('Map'), findsOneWidget);
     expect(find.text('Report'), findsOneWidget);
     expect(find.text('SOS'), findsOneWidget);
+    expect(find.text('Tracker'), findsOneWidget);
+    expect(find.text('Safety'), findsOneWidget);
   });
 }
