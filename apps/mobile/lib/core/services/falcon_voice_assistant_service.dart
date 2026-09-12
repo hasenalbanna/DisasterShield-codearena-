@@ -25,6 +25,14 @@ class FalconVoiceAssistantService {
     final phrase = rawPhrase.toLowerCase().trim();
     debugPrint('Falcon Voice AI Processing: "$phrase"');
 
+    // 0. Wake Word & Status Check ("Hey Falcon wake up", "wake up", etc.)
+    if (phrase.contains('wake') || phrase.contains('hello') || phrase.contains('hi falcon') || phrase.contains('online') || phrase.contains('ready')) {
+      return VoiceCommandResult(
+        transcript: rawPhrase,
+        responseMessage: 'Falcon AI is awake, active, and standing by. State your emergency command, report a hazard, or say "SOS".',
+      );
+    }
+
     // 1. Critical "I am in danger, report the issue" Trigger
     if (phrase.contains('danger') || phrase.contains('emergency') || phrase.contains('sos') || phrase.contains('help')) {
       final hazardId = 'sos_falcon_${DateTime.now().millisecondsSinceEpoch.toRadixString(16)}';
