@@ -14,7 +14,11 @@ import {
   ArrowUpRight,
   Cpu,
   Database,
-  RefreshCw
+  RefreshCw,
+  Sun,
+  Moon,
+  CheckCircle,
+  Filter
 } from 'lucide-react';
 import { subscribeToHazards, updateHazardStatus, seedInitialHazards } from './services/hazardService';
 import type { HazardDocument } from './types/models';
@@ -127,10 +131,21 @@ const initialHazards: HazardDocument[] = [
 ];
 
 export function App() {
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [hazards, setHazards] = useState<HazardDocument[]>(initialHazards);
   const [activeTab, setActiveTab] = useState<'overview' | 'map' | 'ai' | 'tickets'>('overview');
+  const [selectedFilter, setSelectedFilter] = useState<string>('ALL');
   const [isFirebaseSynced, setIsFirebaseSynced] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Sync theme attribute to document element
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+  };
 
   // Subscribe to real-time Firestore hazards collection
   useEffect(() => {
@@ -162,273 +177,361 @@ export function App() {
     try {
       await updateHazardStatus(hazardId, newStatus);
     } catch (e) {
-      console.warn('Updated locally, Firestore update error:', e);
+      console.warn('Updated locally, Firestore error:', e);
     }
   };
+
+  const filteredHazards = selectedFilter === 'ALL' 
+    ? hazards 
+    : hazards.filter(h => h.status === selectedFilter);
 
   const getCategoryIcon = (category: HazardDocument['category']) => {
     switch (category) {
       case 'SEVERE_FLOOD':
-        return <Droplets className="w-5 h-5 text-blue-400" />;
+        return <Droplets style={{ width: '18px', height: '18px' }} />;
       case 'POWER_HAZARD':
-        return <Zap className="w-5 h-5 text-amber-400" />;
+        return <Zap style={{ width: '18px', height: '18px' }} />;
       case 'FALLEN_TREE':
-        return <Flame className="w-5 h-5 text-emerald-400" />;
+        return <Flame style={{ width: '18px', height: '18px' }} />;
       case 'BLOCKED_ROAD':
-        return <AlertTriangle className="w-5 h-5 text-red-400" />;
+        return <AlertTriangle style={{ width: '18px', height: '18px' }} />;
       default:
-        return <AlertTriangle className="w-5 h-5 text-gray-400" />;
+        return <AlertTriangle style={{ width: '18px', height: '18px' }} />;
     }
   };
 
   const getStatusBadge = (status: HazardDocument['status']) => {
-    switch (status) {
-      case 'AREA_ALERT':
-        return <span style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#F87171', border: '1px solid rgba(239, 68, 68, 0.4)' }} className="px-2.5 py-1 rounded-full text-xs font-semibold">Area Alert</span>;
-      case 'COUNCIL_TICKET':
-        return <span style={{ backgroundColor: 'rgba(245, 158, 11, 0.2)', color: '#FBBF24', border: '1px solid rgba(245, 158, 11, 0.4)' }} className="px-2.5 py-1 rounded-full text-xs font-semibold">Council Ticket</span>;
-      case 'PUBLISHED':
-        return <span style={{ backgroundColor: 'rgba(16, 185, 129, 0.2)', color: '#34D399', border: '1px solid rgba(16, 185, 129, 0.4)' }} className="px-2.5 py-1 rounded-full text-xs font-semibold">Published</span>;
-      case 'NEED_MORE_INFO':
-        return <span style={{ backgroundColor: 'rgba(148, 163, 184, 0.2)', color: '#CBD5E1', border: '1px solid rgba(148, 163, 184, 0.4)' }} className="px-2.5 py-1 rounded-full text-xs font-semibold">Need More Info</span>;
-      default:
-        return <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-800 text-gray-300">{status}</span>;
+    let bg = 'var(--badge-info-bg)';
+    let color = 'var(--badge-info-text)';
+    let label: string = status;
+
+    if (status === 'AREA_ALERT') {
+      bg = 'var(--badge-alert-bg)';
+      color = 'var(--badge-alert-text)';
+      label = 'Area Alert';
+    } else if (status === 'COUNCIL_TICKET') {
+      bg = 'var(--badge-ticket-bg)';
+      color = 'var(--badge-ticket-text)';
+      label = 'Council Ticket';
+    } else if (status === 'PUBLISHED') {
+      bg = 'var(--badge-published-bg)';
+      color = 'var(--badge-published-text)';
+      label = 'Published';
+    } else if (status === 'NEED_MORE_INFO') {
+      bg = 'var(--badge-info-bg)';
+      color = 'var(--badge-info-text)';
+      label = 'Need More Info';
     }
+
+    return (
+      <span style={{ 
+        backgroundColor: bg, 
+        color: color, 
+        padding: '4px 10px', 
+        borderRadius: '6px', 
+        fontSize: '11px', 
+        fontWeight: 600,
+        letterSpacing: '0.02em',
+        border: '1px solid currentColor'
+      }}>
+        {label}
+      </span>
+    );
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#0A0E17', color: '#F8FAFC' }}>
-      {/* Sidebar Navigation */}
-      <aside style={{ width: '280px', borderRight: '1px solid rgba(255,255,255,0.08)', padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingLeft: '8px' }}>
-          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 15px rgba(59,130,246,0.5)' }}>
-            <ShieldAlert style={{ width: '24px', height: '24px', color: '#FFF' }} />
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+      {/* Sidebar Minimalist */}
+      <aside style={{ 
+        width: '260px', 
+        borderRight: '1px solid var(--border-subtle)', 
+        padding: '24px 16px', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        gap: '24px',
+        backgroundColor: 'var(--bg-secondary)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ 
+              width: '32px', 
+              height: '32px', 
+              borderRadius: '6px', 
+              background: 'var(--btn-bg)', 
+              color: 'var(--btn-text)',
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center' 
+            }}>
+              <ShieldAlert style={{ width: '18px', height: '18px' }} />
+            </div>
+            <div>
+              <h1 style={{ fontSize: '15px', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>DisasterShield</h1>
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Minimalist v6.0</span>
+            </div>
           </div>
-          <div>
-            <h1 style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '-0.02em', margin: 0 }}>DisasterShield</h1>
-            <span style={{ fontSize: '11px', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Command Center v6.0</span>
-          </div>
+
+          <button 
+            onClick={toggleTheme}
+            title="Toggle Light / Dark mode"
+            style={{ 
+              width: '32px', 
+              height: '32px', 
+              borderRadius: '6px', 
+              background: 'var(--bg-card)', 
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-subtle)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {theme === 'light' ? <Moon style={{ width: '15px', height: '15px' }} /> : <Sun style={{ width: '15px', height: '15px' }} />}
+          </button>
         </div>
 
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           <button 
             onClick={() => setActiveTab('overview')}
             style={{ 
-              display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderRadius: '10px', 
-              background: activeTab === 'overview' ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
-              color: activeTab === 'overview' ? '#60A5FA' : '#94A3B8',
-              border: activeTab === 'overview' ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
-              textAlign: 'left', fontWeight: 500
+              display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '6px', 
+              background: activeTab === 'overview' ? 'var(--btn-bg)' : 'transparent',
+              color: activeTab === 'overview' ? 'var(--btn-text)' : 'var(--text-secondary)',
+              border: 'none', textAlign: 'left', fontWeight: 600, fontSize: '13px'
             }}
           >
-            <Activity style={{ width: '18px', height: '18px' }} />
-            <span>Command Overview</span>
+            <Activity style={{ width: '16px', height: '16px' }} />
+            <span>Overview</span>
           </button>
 
           <button 
             onClick={() => setActiveTab('map')}
             style={{ 
-              display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderRadius: '10px', 
-              background: activeTab === 'map' ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
-              color: activeTab === 'map' ? '#60A5FA' : '#94A3B8',
-              border: activeTab === 'map' ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
-              textAlign: 'left', fontWeight: 500
+              display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '6px', 
+              background: activeTab === 'map' ? 'var(--btn-bg)' : 'transparent',
+              color: activeTab === 'map' ? 'var(--btn-text)' : 'var(--text-secondary)',
+              border: 'none', textAlign: 'left', fontWeight: 600, fontSize: '13px'
             }}
           >
-            <MapPin style={{ width: '18px', height: '18px' }} />
-            <span>Live Geospatial Map</span>
+            <MapPin style={{ width: '16px', height: '16px' }} />
+            <span>Geospatial Map</span>
           </button>
 
           <button 
             onClick={() => setActiveTab('ai')}
             style={{ 
-              display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderRadius: '10px', 
-              background: activeTab === 'ai' ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
-              color: activeTab === 'ai' ? '#60A5FA' : '#94A3B8',
-              border: activeTab === 'ai' ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
-              textAlign: 'left', fontWeight: 500
+              display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '6px', 
+              background: activeTab === 'ai' ? 'var(--btn-bg)' : 'transparent',
+              color: activeTab === 'ai' ? 'var(--btn-text)' : 'var(--text-secondary)',
+              border: 'none', textAlign: 'left', fontWeight: 600, fontSize: '13px'
             }}
           >
-            <Cpu style={{ width: '18px', height: '18px' }} />
-            <span>Hazard Aggregator AI</span>
+            <Cpu style={{ width: '16px', height: '16px' }} />
+            <span>AI Aggregator</span>
           </button>
 
           <button 
             onClick={() => setActiveTab('tickets')}
             style={{ 
-              display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderRadius: '10px', 
-              background: activeTab === 'tickets' ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
-              color: activeTab === 'tickets' ? '#60A5FA' : '#94A3B8',
-              border: activeTab === 'tickets' ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
-              textAlign: 'left', fontWeight: 500
+              display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '6px', 
+              background: activeTab === 'tickets' ? 'var(--btn-bg)' : 'transparent',
+              color: activeTab === 'tickets' ? 'var(--btn-text)' : 'var(--text-secondary)',
+              border: 'none', textAlign: 'left', fontWeight: 600, fontSize: '13px'
             }}
           >
-            <FileText style={{ width: '18px', height: '18px' }} />
-            <span>Council Tickets & Relief</span>
+            <FileText style={{ width: '16px', height: '16px' }} />
+            <span>Council Tickets</span>
           </button>
         </nav>
 
-        {/* Cloud & AI Status */}
-        <div style={{ marginTop: 'auto', padding: '16px', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+        {/* Database & Cloud Sync */}
+        <div style={{ marginTop: 'auto', padding: '14px', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981' }} className="pulse-emerald" />
-            <span style={{ fontSize: '12px', fontWeight: 600, color: '#34D399' }}>Firebase Firestore</span>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981' }} />
+            <span style={{ fontSize: '11px', fontWeight: 700 }}>Firebase Connected</span>
           </div>
-          <p style={{ fontSize: '11px', color: '#64748B', margin: '0 0 10px 0' }}>Project: disastershield-a23cf</p>
+          <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: '0 0 10px 0', fontFamily: 'var(--font-mono)' }}>
+            disastershield-a23cf
+          </p>
           <button
             onClick={handleSyncToFirebase}
             disabled={isSyncing}
-            style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              padding: '8px',
-              background: isFirebaseSynced ? 'rgba(16, 185, 129, 0.15)' : 'rgba(59, 130, 246, 0.2)',
-              border: `1px solid ${isFirebaseSynced ? 'rgba(16, 185, 129, 0.4)' : 'rgba(59, 130, 246, 0.4)'}`,
-              borderRadius: '8px',
-              color: isFirebaseSynced ? '#34D399' : '#60A5FA',
-              fontSize: '11px',
-              fontWeight: 600
-            }}
+            className="btn-secondary"
+            style={{ width: '100%', justifyContent: 'center' }}
           >
-            {isSyncing ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Database className="w-3 h-3" />}
+            {isSyncing ? <RefreshCw style={{ width: '12px', height: '12px' }} className="animate-spin" /> : <Database style={{ width: '12px', height: '12px' }} />}
             <span>{isFirebaseSynced ? 'Firebase Synced' : 'Sync Demo Data'}</span>
           </button>
         </div>
       </aside>
 
-      {/* Main Command Console Content */}
+      {/* Main Console Content */}
       <main style={{ flex: 1, padding: '32px', overflowY: 'auto' }}>
-        {/* Header telemetry metrics */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
+        {/* Header Telemetry */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px' }}>
           <div>
-            <h2 style={{ fontSize: '24px', fontWeight: 700, margin: '0 0 4px 0' }}>Municipal Emergency Operations</h2>
-            <p style={{ fontSize: '13px', color: '#94A3B8', margin: 0 }}>
-              Live Firestore Sync • Storage Bucket: <code style={{ color: '#38BDF8' }}>disastershield-a23cf.firebasestorage.app</code>
+            <h2 style={{ fontSize: '20px', fontWeight: 800, margin: '0 0 4px 0', letterSpacing: '-0.02em' }}>
+              Municipal Emergency Operations
+            </h2>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+              AI Aggregator Pipeline & Real-Time Dispatch System
             </p>
           </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: '10px', color: '#EF4444', fontWeight: 600 }}>
-              <Radio className="w-4 h-4 pulse-crimson" />
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button className="btn-secondary">
+              <Radio style={{ width: '14px', height: '14px', color: '#EF4444' }} />
               <span>1 Live SOS Signal</span>
             </button>
-            <button style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', background: '#3B82F6', border: 'none', borderRadius: '10px', color: '#FFF', fontWeight: 600, boxShadow: '0 0 15px rgba(59, 130, 246, 0.3)' }}>
+            <button className="btn-primary">
               <span>Dispatch Field Crew</span>
-              <ArrowUpRight className="w-4 h-4" />
+              <ArrowUpRight style={{ width: '14px', height: '14px' }} />
             </button>
           </div>
         </div>
 
         {/* 4 Stat Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
-          <div className="glass-panel" style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94A3B8', marginBottom: '8px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 500 }}>ACTIVE HAZARDS</span>
-              <AlertTriangle style={{ width: '18px', height: '18px', color: '#F59E0B' }} />
+          <div className="minimal-card" style={{ padding: '18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Active Hazards</span>
+              <AlertTriangle style={{ width: '16px', height: '16px' }} />
             </div>
-            <div style={{ fontSize: '28px', fontWeight: 800 }}>{hazards.length}</div>
-            <span style={{ fontSize: '11px', color: '#10B981' }}>Live synchronized</span>
+            <div style={{ fontSize: '26px', fontWeight: 800 }}>{hazards.length}</div>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Live in Firestore</span>
           </div>
 
-          <div className="glass-panel" style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94A3B8', marginBottom: '8px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 500 }}>AVG AI CONFIDENCE</span>
-              <Cpu style={{ width: '18px', height: '18px', color: '#3B82F6' }} />
+          <div className="minimal-card" style={{ padding: '18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>AI Confidence Avg</span>
+              <Cpu style={{ width: '16px', height: '16px' }} />
             </div>
-            <div style={{ fontSize: '28px', fontWeight: 800 }}>
+            <div style={{ fontSize: '26px', fontWeight: 800 }}>
               {hazards.length > 0 
                 ? `${(hazards.reduce((acc, h) => acc + (h.aiAnalysis?.imageConfidence || 0), 0) / hazards.length * 100).toFixed(1)}%` 
                 : '92.4%'}
             </div>
-            <span style={{ fontSize: '11px', color: '#94A3B8' }}>DBSCAN & EXIF verified</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>EXIF & DBSCAN checked</span>
           </div>
 
-          <div className="glass-panel" style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94A3B8', marginBottom: '8px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 500 }}>FIELD CREWS ON-SITE</span>
-              <Users style={{ width: '18px', height: '18px', color: '#10B981' }} />
+          <div className="minimal-card" style={{ padding: '18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Active Field Crews</span>
+              <Users style={{ width: '16px', height: '16px' }} />
             </div>
-            <div style={{ fontSize: '28px', fontWeight: 800 }}>18 / 24</div>
-            <span style={{ fontSize: '11px', color: '#34D399' }}>6 standby teams</span>
+            <div style={{ fontSize: '26px', fontWeight: 800 }}>18 / 24</div>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>6 standby units</span>
           </div>
 
-          <div className="glass-panel" style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94A3B8', marginBottom: '8px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 500 }}>COUNCIL TICKETS</span>
-              <FileText style={{ width: '18px', height: '18px', color: '#06B6D4' }} />
+          <div className="minimal-card" style={{ padding: '18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Council Tickets</span>
+              <FileText style={{ width: '16px', height: '16px' }} />
             </div>
-            <div style={{ fontSize: '28px', fontWeight: 800 }}>
-              {hazards.filter((h) => h.status === 'COUNCIL_TICKET').length}
+            <div style={{ fontSize: '26px', fontWeight: 800 }}>
+              {hazards.filter(h => h.status === 'COUNCIL_TICKET').length}
             </div>
-            <span style={{ fontSize: '11px', color: '#F59E0B' }}>Auto-routed by AI</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Auto-routed</span>
           </div>
         </div>
 
-        {/* Hazard Aggregator AI Live Queue */}
-        <section className="glass-panel" style={{ padding: '24px' }}>
+        {/* Hazard Aggregator Feed */}
+        <section className="minimal-card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <div>
-              <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Hazard Aggregator AI Triage Feed</h3>
-              <p style={{ fontSize: '12px', color: '#94A3B8', margin: '4px 0 0 0' }}>
-                Automated 4-channel routing • Click actions to push Firestore updates
+              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>
+                Hazard Aggregator AI Triage Feed
+              </h3>
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
+                Automated 4-channel routing: Need Info • Published • Area Alert • Council Ticket
               </p>
             </div>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <span style={{ fontSize: '12px', padding: '6px 12px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', color: '#94A3B8' }}>
-                {isFirebaseSynced ? '🟢 Connected to Firestore' : '🟡 Local Fallback Mode'}
-              </span>
+
+            {/* Filter Buttons */}
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <Filter style={{ width: '14px', height: '14px', color: 'var(--text-muted)', marginRight: '4px' }} />
+              {['ALL', 'AREA_ALERT', 'COUNCIL_TICKET', 'PUBLISHED', 'NEED_MORE_INFO'].map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setSelectedFilter(f)}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    background: selectedFilter === f ? 'var(--btn-bg)' : 'var(--bg-secondary)',
+                    color: selectedFilter === f ? 'var(--btn-text)' : 'var(--text-secondary)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  {f === 'ALL' ? 'All' : f.replace('_', ' ')}
+                </button>
+              ))}
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {hazards.map((h) => (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {filteredHazards.map((h) => (
               <div 
                 key={h.hazardId}
                 style={{ 
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-                  padding: '16px 20px', background: 'rgba(15, 23, 42, 0.4)', borderRadius: '12px',
-                  border: '1px solid rgba(255,255,255,0.04)'
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between', 
+                  padding: '14px 18px', 
+                  background: 'var(--bg-secondary)', 
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-subtle)'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <div style={{ padding: '10px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{ 
+                    padding: '8px', 
+                    borderRadius: '6px', 
+                    background: 'var(--bg-card)', 
+                    border: '1px solid var(--border-subtle)',
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center' 
+                  }}>
                     {getCategoryIcon(h.category)}
                   </div>
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                      <span style={{ fontWeight: 600, fontSize: '14px' }}>{h.ward}</span>
-                      <span style={{ fontSize: '11px', color: '#64748B', fontFamily: 'monospace' }}>{h.hazardId}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                      <span style={{ fontWeight: 700, fontSize: '13px' }}>{h.ward}</span>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{h.hazardId}</span>
                       {h.reporterName && (
-                        <span style={{ fontSize: '11px', color: '#38BDF8' }}>• by {h.reporterName}</span>
+                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>• reported by {h.reporterName}</span>
                       )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '12px', color: '#94A3B8' }}>
-                      <span>Urgency: <strong style={{ color: (h.aiAnalysis?.urgencyScore || 0) > 7.5 ? '#EF4444' : '#F59E0B' }}>{h.aiAnalysis?.urgencyScore || 'N/A'}/10</strong></span>
-                      <span>AI Conf: <strong style={{ color: '#38BDF8' }}>{((h.aiAnalysis?.imageConfidence || 0) * 100).toFixed(0)}%</strong></span>
-                      <span>Cluster: <strong>{h.aiAnalysis?.clusterCount || 1} reports</strong></span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock style={{ width: '12px', height: '12px' }} /> {h.createdAt.slice(11, 16)}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                      <span>Urgency: <strong>{h.aiAnalysis?.urgencyScore || 'N/A'}/10</strong></span>
+                      <span>AI Confidence: <strong>{((h.aiAnalysis?.imageConfidence || 0) * 100).toFixed(0)}%</strong></span>
+                      <span>Cluster: <strong>{h.aiAnalysis?.clusterCount || 1} report(s)</strong></span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <Clock style={{ width: '11px', height: '11px' }} /> {h.createdAt.slice(11, 16)}
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {getStatusBadge(h.status)}
                   {h.status === 'NEED_MORE_INFO' && (
                     <button 
                       onClick={() => handleStatusChange(h.hazardId, 'PUBLISHED')}
-                      style={{ padding: '6px 12px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '8px', color: '#34D399', fontSize: '11px', fontWeight: 600 }}
+                      className="btn-secondary"
                     >
-                      Approve & Publish
+                      <CheckCircle style={{ width: '12px', height: '12px' }} />
+                      <span>Approve</span>
                     </button>
                   )}
                   {h.status === 'PUBLISHED' && (
                     <button 
                       onClick={() => handleStatusChange(h.hazardId, 'COUNCIL_TICKET')}
-                      style={{ padding: '6px 12px', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.4)', borderRadius: '8px', color: '#FBBF24', fontSize: '11px', fontWeight: 600 }}
+                      className="btn-secondary"
                     >
-                      Generate Ticket
+                      <FileText style={{ width: '12px', height: '12px' }} />
+                      <span>Assign Ticket</span>
                     </button>
                   )}
                 </div>
