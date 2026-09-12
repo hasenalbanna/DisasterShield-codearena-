@@ -1,5 +1,3 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -9,6 +7,8 @@ import '../../../../core/models/hazard_model.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/services/location_service.dart';
 import '../../../../core/services/firebase_hazard_service.dart';
+import '../../../../core/services/image_compression_service.dart';
+import '../../../../core/services/auth_service.dart';
 
 class IncidentReporterScreen extends ConsumerStatefulWidget {
   const IncidentReporterScreen({super.key});
@@ -25,6 +25,8 @@ class _IncidentReporterScreenState extends ConsumerState<IncidentReporterScreen>
   final TextEditingController _wardController = TextEditingController(text: 'Ward 12 - South Riverbank');
 
   XFile? _capturedImage;
+  String? _encodedImageBase64;
+  String? _selectedPresetUrl;
   String _selectedCategory = 'SEVERE_FLOOD';
   bool _useCustomPinLocation = false;
   LatLng? _selectedPinLocation;
@@ -57,12 +59,16 @@ class _IncidentReporterScreenState extends ConsumerState<IncidentReporterScreen>
     try {
       final XFile? photo = await _picker.pickImage(
         source: source,
-        imageQuality: 85,
-        maxWidth: 1600,
+        imageQuality: 75,
+        maxWidth: 1024,
+        maxHeight: 1024,
       );
       if (photo != null) {
+        final base64String = await ImageCompressionService.convertXFileToBase64(photo);
         setState(() {
           _capturedImage = photo;
+          _encodedImageBase64 = base64String;
+          _selectedPresetUrl = null;
         });
       }
     } catch (e) {
@@ -123,17 +129,27 @@ class _IncidentReporterScreenState extends ConsumerState<IncidentReporterScreen>
     final hazardId = 'hz_${DateTime.now().millisecondsSinceEpoch.toRadixString(16)}';
     final urgency = _computeUrgencyScore();
 
+    final activeUser = AuthService.currentProfile;
+    final reporterId = activeUser?.uid ?? 'usr_citizen_local';
+    final reporterName = activeUser != null
+        ? '${activeUser.displayName} (${activeUser.role})'
+        : 'MRA Hasen (Citizen)';
+
+    final effectiveMedia = _encodedImageBase64 ??
+        _selectedPresetUrl ??
+        (_capturedImage != null ? _capturedImage!.path : 'https://images.unsplash.com/photo-1547683905-f686c993aae5?w=800');
+
     final hazard = HazardModel(
       id: hazardId,
       hazardId: hazardId,
-      reportedBy: 'usr_citizen_local',
-      reporterName: 'MRA Hasen (Citizen)',
+      reportedBy: reporterId,
+      reporterName: reporterName,
       category: _selectedCategory,
       coordinates: finalCoords,
       geohash: 'tc3p18u',
-      ward: _wardController.text.trim().isNotEmpty ? _wardController.text.trim() : 'Ward 12 - South District',
+      ward: _wardController.text.trim().isNotEmpty ? _wardController.text.trim() : (activeUser?.ward ?? 'Ward 12 - South District'),
       description: _descController.text.trim().isNotEmpty ? _descController.text.trim() : null,
-      mediaUrl: _capturedImage?.path ?? 'https://images.unsplash.com/photo-1547683905-f686c993aae5?w=800',
+      mediaUrl: effectiveMedia,
       audioMemoUrl: _hasVoiceNote ? 'memo_$hazardId.m4a' : null,
       status: urgency >= 8.0 ? 'AREA_ALERT' : 'PUBLISHED',
       dangerRadiusMeters: _dangerRadiusMeters,
@@ -286,6 +302,8 @@ class _IncidentReporterScreenState extends ConsumerState<IncidentReporterScreen>
   void _resetForm() {
     setState(() {
       _capturedImage = null;
+      _encodedImageBase64 = null;
+      _selectedPresetUrl = null;
       _descController.clear();
       _hasVoiceNote = false;
       _selectedPinLocation = null;
@@ -302,7 +320,7 @@ class _IncidentReporterScreenState extends ConsumerState<IncidentReporterScreen>
             ListTile(
               leading: const Icon(Icons.camera_alt),
               title: const Text('Take Live Photo'),
-              subtitle: const Text('Capture with device camera'),
+              subtitle: const Text('Capture with device camera (auto-converts to Base64)'),
               onTap: () {
                 Navigator.pop(ctx);
                 _pickImage(ImageSource.camera);
@@ -311,12 +329,59 @@ class _IncidentReporterScreenState extends ConsumerState<IncidentReporterScreen>
             ListTile(
               leading: const Icon(Icons.photo_library),
               title: const Text('Choose from Gallery'),
-              subtitle: const Text('Select existing evidence photo'),
+              subtitle: const Text('Select existing photo (compressed to Base64)'),
               onTap: () {
                 Navigator.pop(ctx);
                 _pickImage(ImageSource.gallery);
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.satellite_alt),
+              title: const Text('Simulate Disaster Photo (Presets)'),
+              subtitle: const Text('Instant evaluation photos for quick demonstration'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showPresetsModal(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPresetsModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Select Verified Hazard Evidence Preset',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+            ),
+            ...ImageCompressionService.evidencePresets.map((preset) {
+              return ListTile(
+                leading: const Icon(Icons.image, color: Color(0xFFDC2626)),
+                title: Text(preset['title']!),
+                subtitle: Text('Category: ${preset['category']}'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  setState(() {
+                    _selectedPresetUrl = preset['url'];
+                    _capturedImage = null;
+                    _encodedImageBase64 = null;
+                    if (preset['category'] != null) {
+                      _selectedCategory = preset['category']!;
+                    }
+                  });
+                },
+              );
+            }),
           ],
         ),
       ),
@@ -382,15 +447,16 @@ class _IncidentReporterScreenState extends ConsumerState<IncidentReporterScreen>
                     width: 1.5,
                   ),
                 ),
-                child: _capturedImage != null
+                child: (_encodedImageBase64 != null || _selectedPresetUrl != null || _capturedImage != null)
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(11),
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            kIsWeb
-                                ? Image.network(_capturedImage!.path, fit: BoxFit.cover)
-                                : Image.file(File(_capturedImage!.path), fit: BoxFit.cover),
+                            ImageCompressionService.buildEvidenceWidget(
+                              _encodedImageBase64 ?? _selectedPresetUrl ?? _capturedImage!.path,
+                              fit: BoxFit.cover,
+                            ),
                             Positioned(
                               top: 10,
                               right: 10,
@@ -400,11 +466,16 @@ class _IncidentReporterScreenState extends ConsumerState<IncidentReporterScreen>
                                   color: Colors.black87,
                                   borderRadius: BorderRadius.circular(6),
                                 ),
-                                child: const Row(
+                                child: Row(
                                   children: [
-                                    Icon(Icons.check, color: Color(0xFF34D399), size: 14),
-                                    SizedBox(width: 4),
-                                    Text('Evidence Ready', style: TextStyle(color: Colors.white, fontSize: 11)),
+                                    const Icon(Icons.check, color: Color(0xFF34D399), size: 14),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      _encodedImageBase64 != null
+                                          ? 'Base64 Encoded (Free DB)'
+                                          : (_selectedPresetUrl != null ? 'Preset Simulation' : 'Evidence Ready'),
+                                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                    ),
                                   ],
                                 ),
                               ),

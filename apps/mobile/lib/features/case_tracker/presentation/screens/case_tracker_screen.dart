@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/models/hazard_model.dart';
 import '../../../../core/providers/app_providers.dart';
+import '../../../../core/services/image_compression_service.dart';
 
 class CaseTrackerScreen extends ConsumerWidget {
   const CaseTrackerScreen({super.key});
@@ -201,6 +202,21 @@ class CaseTrackerScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 8),
+
+            if (item.mediaUrl.isNotEmpty) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: SizedBox(
+                  height: 110,
+                  width: double.infinity,
+                  child: ImageCompressionService.buildEvidenceWidget(
+                    item.mediaUrl,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
 
             // Timeline Steps
             Row(

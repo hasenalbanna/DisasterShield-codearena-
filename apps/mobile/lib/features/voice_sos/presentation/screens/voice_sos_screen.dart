@@ -5,6 +5,7 @@ import '../../../../core/providers/app_providers.dart';
 import '../../../../core/services/location_service.dart';
 import '../../../../core/services/firebase_hazard_service.dart';
 import '../widgets/falcon_voice_modal.dart';
+import '../widgets/emergency_strobe_modal.dart';
 
 class VoiceSosScreen extends ConsumerStatefulWidget {
   const VoiceSosScreen({super.key});
@@ -359,11 +360,28 @@ class _VoiceSosScreenState extends ConsumerState<VoiceSosScreen>
             ),
             const SizedBox(height: 24),
 
-            // Mock Voice Trigger Demo Button
-            OutlinedButton.icon(
-              icon: const Icon(Icons.record_voice_over, size: 16),
-              label: const Text('Simulate Voice Distress Trigger'),
-              onPressed: () => _triggerEmergencySos('VOICE_TRIGGER'),
+            // Action Buttons
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 10,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.flash_on, size: 16, color: Color(0xFFDC2626)),
+                  label: const Text('Night Rescue Strobe'),
+                  onPressed: () => EmergencyStrobeModal.show(context, userCoords),
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.mic, size: 16),
+                  label: const Text('Hey Falcon AI'),
+                  onPressed: () => FalconVoiceModal.show(context),
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.record_voice_over, size: 16),
+                  label: const Text('Simulate Distress'),
+                  onPressed: () => _triggerEmergencySos('VOICE_TRIGGER'),
+                ),
+              ],
             ),
 
             const Spacer(),

@@ -10,6 +10,9 @@ import 'features/voice_sos/presentation/screens/voice_sos_screen.dart';
 import 'features/voice_sos/presentation/widgets/falcon_voice_modal.dart';
 import 'features/case_tracker/presentation/screens/case_tracker_screen.dart';
 import 'features/profile/presentation/screens/profile_screen.dart';
+import 'features/auth/presentation/screens/login_screen.dart';
+import 'core/services/auth_service.dart';
+import 'core/models/user_profile_model.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -123,7 +126,33 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
               ref.read(themeModeProvider.notifier).toggle();
             },
           ),
-          const SizedBox(width: 8),
+          ValueListenableBuilder<UserProfileModel?>(
+            valueListenable: AuthService.activeProfileNotifier,
+            builder: (context, profile, _) {
+              final initial = (profile?.displayName.isNotEmpty == true)
+                  ? profile!.displayName[0].toUpperCase()
+                  : 'H';
+              return Padding(
+                padding: const EdgeInsets.only(right: 12, left: 4),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => LoginScreen.show(context),
+                  child: CircleAvatar(
+                    radius: 14,
+                    backgroundColor: isDark ? const Color(0xFF262626) : const Color(0xFFE5E7EB),
+                    child: Text(
+                      initial,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
         ],
       ),
       body: IndexedStack(

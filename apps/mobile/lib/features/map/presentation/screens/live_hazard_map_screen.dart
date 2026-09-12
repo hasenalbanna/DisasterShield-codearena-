@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../../core/models/hazard_model.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/services/location_service.dart';
+import '../../../../core/services/image_compression_service.dart';
 import '../../../voice_sos/presentation/widgets/falcon_voice_modal.dart';
 
 class LiveHazardMapScreen extends ConsumerStatefulWidget {
@@ -560,6 +561,22 @@ class _LiveHazardMapScreenState extends ConsumerState<LiveHazardMapScreen> {
                     ],
                   ),
                   const SizedBox(height: 14),
+
+                  // Evidence Photo (Base64 Database or Remote)
+                  if (currentHazard.mediaUrl.isNotEmpty) ...[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: SizedBox(
+                        height: 140,
+                        width: double.infinity,
+                        child: ImageCompressionService.buildEvidenceWidget(
+                          currentHazard.mediaUrl,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
 
                   // Description / AI Reasoning
                   if (currentHazard.description != null && currentHazard.description!.isNotEmpty)
