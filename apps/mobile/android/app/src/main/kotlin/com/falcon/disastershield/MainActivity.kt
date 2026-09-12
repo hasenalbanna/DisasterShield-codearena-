@@ -1,4 +1,4 @@
-package com.disastershield.app.mobile
+package com.falcon.disastershield
 
 import io.flutter.embedding.android.FlutterActivity
 
