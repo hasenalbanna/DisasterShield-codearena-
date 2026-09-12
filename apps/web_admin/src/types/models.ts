@@ -52,6 +52,7 @@ export interface HazardDocument {
   aiAnalysis: AiAnalysisResult;
   status: HazardStatus;
   assignedCrewId?: string;
+  dispatchNotes?: string;
   councilTicketId?: string;
   createdAt: string;
   updatedAt: string;

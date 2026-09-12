@@ -34,13 +34,23 @@ export function subscribeToHazards(callback: (hazards: HazardDocument[]) => void
   }
 }
 
-/**
- * Updates status of a hazard (e.g. Published, Council Ticket, Rejected)
- */
 export async function updateHazardStatus(hazardId: string, newStatus: HazardDocument['status']) {
   const hazardRef = doc(db, HAZARDS_COLLECTION, hazardId);
   await updateDoc(hazardRef, {
     status: newStatus,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+/**
+ * Dispatches a municipal field crew to a hazard
+ */
+export async function dispatchCrewToHazard(hazardId: string, crewId: string, notes?: string) {
+  const hazardRef = doc(db, HAZARDS_COLLECTION, hazardId);
+  await updateDoc(hazardRef, {
+    status: 'DISPATCHED',
+    assignedCrewId: crewId,
+    dispatchNotes: notes || '',
     updatedAt: new Date().toISOString(),
   });
 }
