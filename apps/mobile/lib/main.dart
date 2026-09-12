@@ -13,6 +13,7 @@ import 'features/profile/presentation/screens/profile_screen.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 import 'core/services/auth_service.dart';
 import 'core/models/user_profile_model.dart';
+import 'core/widgets/floating_glass_nav_bar.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -155,40 +156,24 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
           ),
         ],
       ),
-      body: IndexedStack(
-        index: currentIndex,
-        children: _screens,
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: currentIndex,
-        onDestinationSelected: (index) {
-          ref.read(bottomNavIndexProvider.notifier).setIndex(index);
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.map_outlined),
-            selectedIcon: Icon(Icons.map),
-            label: 'Map',
+      extendBody: true,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          IndexedStack(
+            index: currentIndex,
+            children: _screens,
           ),
-          NavigationDestination(
-            icon: Icon(Icons.add_a_photo_outlined),
-            selectedIcon: Icon(Icons.add_a_photo),
-            label: 'Report',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.sos_outlined, color: Color(0xFFDC2626)),
-            selectedIcon: Icon(Icons.sos, color: Color(0xFFDC2626)),
-            label: 'SOS',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.timeline_outlined),
-            selectedIcon: Icon(Icons.timeline),
-            label: 'Tracker',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.shield_outlined),
-            selectedIcon: Icon(Icons.shield),
-            label: 'Safety',
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: FloatingGlassNavBar(
+              currentIndex: currentIndex,
+              onIndexChanged: (index) {
+                ref.read(bottomNavIndexProvider.notifier).setIndex(index);
+              },
+            ),
           ),
         ],
       ),

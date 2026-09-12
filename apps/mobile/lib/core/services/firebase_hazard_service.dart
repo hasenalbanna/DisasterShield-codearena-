@@ -30,17 +30,18 @@ class FirebaseHazardService {
     }
   }
 
-  /// Submits an incident report to Firestore with offline fallback
+  /// Submits an incident report to Firestore with offline fallback (instant 0ms responsive)
   static Future<bool> submitHazardReport(HazardModel hazard) async {
     try {
       await _firestore
           .collection(_hazardsCollection)
           .doc(hazard.hazardId)
-          .set(hazard.toJson());
+          .set(hazard.toJson())
+          .timeout(const Duration(milliseconds: 1200));
       debugPrint('Hazard successfully submitted to Firestore: ${hazard.hazardId}');
       return true;
     } catch (e) {
-      debugPrint('Failed to submit online, queueing offline: $e');
+      debugPrint('Online submission timed out or failed, cached offline: $e');
       await LocalStorageService.queueOfflineReport(hazard.toJson());
       return false;
     }

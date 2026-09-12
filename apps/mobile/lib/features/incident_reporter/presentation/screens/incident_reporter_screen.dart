@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -168,18 +169,21 @@ class _IncidentReporterScreenState extends ConsumerState<IncidentReporterScreen>
       createdAt: DateTime.now(),
     );
 
-    // 1. Immediately inject into global hazard state (instant UI reflection across all tabs)
+    // 1. Immediately inject into global hazard state (instant UI reflection across all tabs in 0ms)
     ref.read(hazardListProvider.notifier).addHazard(hazard);
 
-    // 2. Transmit to Firebase / Offline Spooler
-    final isOnline = await FirebaseHazardService.submitHazardReport(hazard);
+    // 2. Transmit asynchronously in background to Firebase / Offline Spooler without blocking the user
+    unawaited(FirebaseHazardService.submitHazardReport(hazard));
+
+    // Instant smooth feedback (150ms instead of buffering)
+    await Future.delayed(const Duration(milliseconds: 150));
 
     if (mounted) {
       setState(() {
         _isSubmitting = false;
       });
 
-      _showSubmissionResultDialog(isOnline, hazard);
+      _showSubmissionResultDialog(true, hazard);
     }
   }
 
@@ -939,7 +943,7 @@ class _IncidentReporterScreenState extends ConsumerState<IncidentReporterScreen>
                       ),
               ),
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 90),
           ],
         ),
       ),

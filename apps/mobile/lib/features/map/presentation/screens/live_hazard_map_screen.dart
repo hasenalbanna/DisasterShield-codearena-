@@ -7,6 +7,7 @@ import '../../../../core/providers/app_providers.dart';
 import '../../../../core/services/location_service.dart';
 import '../../../../core/services/image_compression_service.dart';
 import '../../../voice_sos/presentation/widgets/falcon_voice_modal.dart';
+import '../widgets/live_weather_card.dart';
 
 class LiveHazardMapScreen extends ConsumerStatefulWidget {
   const LiveHazardMapScreen({super.key});
@@ -20,6 +21,21 @@ class _LiveHazardMapScreenState extends ConsumerState<LiveHazardMapScreen> {
   String _selectedCategory = 'ALL';
   double _selectedRadiusKm = 5.0;
   bool _isTickerVisible = true;
+  bool _isMapFullScreen = false;
+
+  void _toggleRadius() {
+    setState(() {
+      if (_selectedRadiusKm == 1.0) {
+        _selectedRadiusKm = 3.0;
+      } else if (_selectedRadiusKm == 3.0) {
+        _selectedRadiusKm = 5.0;
+      } else if (_selectedRadiusKm == 5.0) {
+        _selectedRadiusKm = 10.0;
+      } else {
+        _selectedRadiusKm = 1.0;
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,290 +81,827 @@ class _LiveHazardMapScreenState extends ConsumerState<LiveHazardMapScreen> {
       }
     }
 
+    // 1. HOME SCREEN CARD VIEW (Default)
+    if (!_isMapFullScreen) {
+      return Scaffold(
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. Proximity Alert Ticker (if present)
+              if (_isTickerVisible && closestHazard != null) ...[
+                _buildAlertTicker(closestHazard, closestDistanceMeters, isDark),
+                const SizedBox(height: 12),
+              ],
+
+              // 2. Live Weather Privilege Card
+              const LiveWeatherCard(fullWidth: true),
+              const SizedBox(height: 14),
+
+              // 3. The Map as a Modern Interactive Card ("the map is just a cart")
+              _buildMapCard(userCenter, filteredHazards, userCoords, allHazards, isDark),
+              const SizedBox(height: 16),
+
+              // 4. Space & Active Local Defense Feeds Under the Map Card
+              _buildNearbyHazardsSection(filteredHazards, userCoords, isDark),
+              const SizedBox(height: 14),
+
+              _buildQuickTacticalGrid(context, isDark),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 2. FULLSCREEN INTERACTIVE MAP VIEW (when user clicks the map)
     return Scaffold(
       body: Stack(
         children: [
-          // 1. Fullscreen Interactive Vector Map
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: userCenter,
-              initialZoom: 14.2,
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.falcon.disastershield',
-              ),
+          // Fullscreen Vector Map
+          _buildFlutterMap(userCenter, filteredHazards, userCoords),
 
-              // Danger Perimeter Radius Circles for each active hazard
-              CircleLayer(
-                circles: [
-                  // User 5km Geofence Radar Circle
-                  CircleMarker(
-                    point: userCenter,
-                    color: const Color(0xFF2563EB).withValues(alpha: 0.05),
-                    borderColor: const Color(0xFF2563EB).withValues(alpha: 0.3),
-                    borderStrokeWidth: 1.5,
-                    useRadiusInMeter: true,
-                    radius: _selectedRadiusKm * 1000,
-                  ),
-
-                  // Individual Hazard Danger Zones
-                  ...filteredHazards.map((h) {
-                    final isResolved = h.status == 'RESOLVED_SAFE';
-                    final baseColor = isResolved
-                        ? const Color(0xFF059669)
-                        : (h.category == 'SEVERE_FLOOD'
-                            ? const Color(0xFF0284C7)
-                            : (h.category == 'POWER_HAZARD' ? const Color(0xFFD97706) : const Color(0xFFDC2626)));
-
-                    return CircleMarker(
-                      point: LatLng(h.coordinates.latitude, h.coordinates.longitude),
-                      color: baseColor.withValues(alpha: 0.18),
-                      borderColor: baseColor.withValues(alpha: 0.8),
-                      borderStrokeWidth: 1.8,
-                      useRadiusInMeter: true,
-                      radius: h.dangerRadiusMeters,
-                    );
-                  }),
-                ],
-              ),
-
-              // Hazard & User Markers Layer
-              MarkerLayer(
-                markers: [
-                  // User Location Pin
-                  Marker(
-                    point: userCenter,
-                    width: 34,
-                    height: 34,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Theme.of(context).colorScheme.onPrimary,
-                          width: 2.5,
-                        ),
-                        boxShadow: const [
-                          BoxShadow(color: Colors.black38, blurRadius: 6),
-                        ],
-                      ),
-                      child: Icon(
-                        Icons.my_location,
-                        color: Theme.of(context).colorScheme.onPrimary,
-                        size: 18,
-                      ),
-                    ),
-                  ),
-
-                  // Active Hazard Markers
-                  ...filteredHazards.map((h) {
-                    final pos = LatLng(h.coordinates.latitude, h.coordinates.longitude);
-                    return Marker(
-                      point: pos,
-                      width: 48,
-                      height: 48,
-                      child: GestureDetector(
-                        onTap: () => _showHazardBottomSheet(context, h, userCoords),
-                        child: _buildHazardMarkerPin(h),
-                      ),
-                    );
-                  }),
-                ],
-              ),
-            ],
-          ),
-
-          // 2. Proximity Threat Alert Ticker (Top Banner)
-          if (_isTickerVisible && closestHazard != null)
-            Positioned(
-              top: 14,
-              left: 14,
-              right: 14,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF111111) : Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: closestDistanceMeters < 1000
-                        ? const Color(0xFFDC2626)
-                        : (isDark ? const Color(0xFF262626) : const Color(0xFFE5E7EB)),
-                    width: closestDistanceMeters < 1000 ? 1.8 : 1.0,
-                  ),
-                  boxShadow: const [
-                    BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 3)),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFDC2626).withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 18),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                closestHazard.category.replaceAll('_', ' '),
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFDC2626).withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  '${(closestDistanceMeters).toInt()}m away',
-                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            closestHazard.ward,
-                            style: TextStyle(fontSize: 11, color: isDark ? Colors.white60 : Colors.black54),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.near_me_outlined, size: 18),
-                      tooltip: 'Focus on Hazard',
-                      onPressed: () {
-                        _mapController.move(
-                          LatLng(closestHazard!.coordinates.latitude, closestHazard.coordinates.longitude),
-                          15.5,
-                        );
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 16),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () {
-                        setState(() {
-                          _isTickerVisible = false;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-          // 3. Category & Radius Selector Floating Controller
+          // Top Action Header with Exit Fullscreen Pill
           Positioned(
-            bottom: 20,
+            top: 14,
             left: 14,
             right: 14,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Radar Pill
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          if (_selectedRadiusKm == 1.0) {
-                            _selectedRadiusKm = 3.0;
-                          } else if (_selectedRadiusKm == 3.0) {
-                            _selectedRadiusKm = 5.0;
-                          } else if (_selectedRadiusKm == 5.0) {
-                            _selectedRadiusKm = 10.0;
-                          } else {
-                            _selectedRadiusKm = 1.0;
-                          }
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF111111) : Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: isDark ? const Color(0xFF262626) : const Color(0xFFE5E7EB)),
-                          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.radar, size: 14),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Radius: ${_selectedRadiusKm.toInt()} km (${filteredHazards.length} pins)',
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      ),
+                GestureDetector(
+                  onTap: () => setState(() => _isMapFullScreen = false),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF111111).withValues(alpha: 0.94) : Colors.white.withValues(alpha: 0.96),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB)),
+                      boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 2))],
                     ),
-
-                    // Quick Voice and GPS FABs
-                    Row(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        FloatingActionButton.small(
-                          heroTag: 'fab_falcon_voice',
-                          backgroundColor: const Color(0xFFDC2626),
-                          foregroundColor: Colors.white,
-                          elevation: 3,
-                          tooltip: 'Hey Falcon Voice AI',
-                          onPressed: () => FalconVoiceModal.show(context),
-                          child: const Icon(Icons.mic, size: 18),
-                        ),
-                        const SizedBox(width: 8),
-                        FloatingActionButton.small(
-                          heroTag: 'fab_recenter_gps',
-                          backgroundColor: isDark ? Colors.white : Colors.black,
-                          foregroundColor: isDark ? Colors.black : Colors.white,
-                          elevation: 2,
-                          onPressed: () {
-                            _mapController.move(userCenter, 14.5);
-                          },
-                          child: const Icon(Icons.my_location, size: 18),
+                        Icon(Icons.close_fullscreen_rounded, size: 16, color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'Exit Full View',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
                         ),
                       ],
                     ),
+                  ),
+                ),
+                FloatingActionButton.small(
+                  heroTag: 'fab_recenter_gps_fullscreen',
+                  backgroundColor: isDark ? Colors.white : Colors.black,
+                  foregroundColor: isDark ? Colors.black : Colors.white,
+                  elevation: 3,
+                  onPressed: () => _mapController.move(userCenter, 14.5),
+                  child: const Icon(Icons.my_location, size: 18),
+                ),
+              ],
+            ),
+          ),
+
+          // Proximity Threat Ticker (if visible and below top bar)
+          if (_isTickerVisible && closestHazard != null)
+            Positioned(
+              top: 60,
+              left: 14,
+              right: 14,
+              child: _buildAlertTicker(closestHazard, closestDistanceMeters, isDark),
+            ),
+
+          // Category & Radius Floating Controller at bottom: 92 (cleanly above floating dock)
+          Positioned(
+            bottom: 92,
+            left: 14,
+            right: 14,
+            child: _buildCategoryController(allHazards, filteredHazards, userCenter, isDark),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAlertTicker(HazardModel closestHazard, double closestDistanceMeters, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF111111) : Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: closestDistanceMeters < 1000
+              ? const Color(0xFFDC2626)
+              : (isDark ? const Color(0xFF262626) : const Color(0xFFE5E7EB)),
+          width: closestDistanceMeters < 1000 ? 1.8 : 1.0,
+        ),
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 3)),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFDC2626).withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      closestHazard.category.replaceAll('_', ' '),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDC2626).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '${(closestDistanceMeters).toInt()}m away',
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
+                      ),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 2),
+                Text(
+                  closestHazard.ward,
+                  style: TextStyle(fontSize: 11, color: isDark ? Colors.white60 : Colors.black54),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.near_me_outlined, size: 18),
+            tooltip: 'Focus on Hazard',
+            onPressed: () {
+              setState(() => _isMapFullScreen = true);
+              _mapController.move(
+                LatLng(closestHazard.coordinates.latitude, closestHazard.coordinates.longitude),
+                15.5,
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, size: 16),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: () {
+              setState(() {
+                _isTickerVisible = false;
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
 
-                // Category Filter Chips
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildFilterChip('ALL', 'All (${allHazards.length})'),
-                      _buildFilterChip('SEVERE_FLOOD', 'Floods'),
-                      _buildFilterChip('POWER_HAZARD', 'Power Lines'),
-                      _buildFilterChip('BLOCKED_ROAD', 'Roads'),
-                      _buildFilterChip('FALLEN_TREE', 'Trees'),
-                      _buildFilterChip('LANDSLIDE', 'Landslides'),
-                      _buildFilterChip('STRUCTURE_DAMAGE', 'Structural'),
-                    ],
+  Widget _buildFlutterMap(LatLng userCenter, List<HazardModel> filteredHazards, GeoCoordinates userCoords) {
+    return FlutterMap(
+      mapController: _mapController,
+      options: MapOptions(
+        initialCenter: userCenter,
+        initialZoom: 14.2,
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'com.falcon.disastershield',
+        ),
+
+        // Danger Perimeter Radius Circles for each active hazard
+        CircleLayer(
+          circles: [
+            // User Geofence Radar Circle
+            CircleMarker(
+              point: userCenter,
+              color: const Color(0xFF2563EB).withValues(alpha: 0.05),
+              borderColor: const Color(0xFF2563EB).withValues(alpha: 0.3),
+              borderStrokeWidth: 1.5,
+              useRadiusInMeter: true,
+              radius: _selectedRadiusKm * 1000,
+            ),
+
+            // Individual Hazard Danger Zones
+            ...filteredHazards.map((h) {
+              final isResolved = h.status == 'RESOLVED_SAFE';
+              final baseColor = isResolved
+                  ? const Color(0xFF059669)
+                  : (h.category == 'SEVERE_FLOOD'
+                      ? const Color(0xFF0284C7)
+                      : (h.category == 'POWER_HAZARD' ? const Color(0xFFD97706) : const Color(0xFFDC2626)));
+
+              return CircleMarker(
+                point: LatLng(h.coordinates.latitude, h.coordinates.longitude),
+                color: baseColor.withValues(alpha: 0.18),
+                borderColor: baseColor.withValues(alpha: 0.8),
+                borderStrokeWidth: 1.8,
+                useRadiusInMeter: true,
+                radius: h.dangerRadiusMeters,
+              );
+            }),
+          ],
+        ),
+
+        // Hazard & User Markers Layer
+        MarkerLayer(
+          markers: [
+            // User Location Pin
+            Marker(
+              point: userCenter,
+              width: 34,
+              height: 34,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.onPrimary,
+                    width: 2.5,
+                  ),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black38, blurRadius: 6),
+                  ],
+                ),
+                child: Icon(
+                  Icons.my_location,
+                  color: Theme.of(context).colorScheme.onPrimary,
+                  size: 18,
+                ),
+              ),
+            ),
+
+            // Active Hazard Markers
+            ...filteredHazards.map((h) {
+              final pos = LatLng(h.coordinates.latitude, h.coordinates.longitude);
+              return Marker(
+                point: pos,
+                width: 48,
+                height: 48,
+                child: GestureDetector(
+                  onTap: () => _showHazardBottomSheet(context, h, userCoords),
+                  child: _buildHazardMarkerPin(h),
+                ),
+              );
+            }),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMapCard(LatLng userCenter, List<HazardModel> filteredHazards, GeoCoordinates userCoords, List<HazardModel> allHazards, bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF101014) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.08),
+          width: 0.8,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.07),
+            blurRadius: 18,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Card Header: Title & Full View Expand Pill
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 12, 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFDC2626),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(color: Color(0xFFDC2626), blurRadius: 6, spreadRadius: 1),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'LIVE THREAT RADAR MAP',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${filteredHazards.length} pins',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => setState(() => _isMapFullScreen = true),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.fullscreen_rounded,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Full View',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
           ),
+
+          // Interactive Map Card Viewport (height: 270)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              height: 270,
+              width: double.infinity,
+              child: Stack(
+                children: [
+                  _buildFlutterMap(userCenter, filteredHazards, userCoords),
+
+                  // Floating Hint: Tap to Expand Full View
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _isMapFullScreen = true),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: (isDark ? const Color(0xFF111111) : Colors.white).withValues(alpha: 0.9),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB),
+                          ),
+                          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6)],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.open_in_full_rounded, size: 12, color: isDark ? Colors.white70 : Colors.black87),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Tap for Fullscreen',
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : Colors.black87),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Bottom Controls inside the map card: Radius Pill & Recenter GPS
+                  Positioned(
+                    bottom: 10,
+                    left: 10,
+                    right: 10,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        GestureDetector(
+                          onTap: _toggleRadius,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: (isDark ? const Color(0xFF111111) : Colors.white).withValues(alpha: 0.9),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB)),
+                              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.radar, size: 12),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Radius: ${_selectedRadiusKm.toInt()} km',
+                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => _mapController.move(userCenter, 14.5),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: (isDark ? const Color(0xFF111111) : Colors.white).withValues(alpha: 0.9),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB)),
+                              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                            ),
+                            child: const Icon(Icons.my_location, size: 15),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Filter Chips Row inside the card
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildFilterChip('ALL', 'All (${allHazards.length})'),
+                  _buildFilterChip('SEVERE_FLOOD', 'Floods'),
+                  _buildFilterChip('POWER_HAZARD', 'Power Lines'),
+                  _buildFilterChip('BLOCKED_ROAD', 'Roads'),
+                  _buildFilterChip('FALLEN_TREE', 'Trees'),
+                  _buildFilterChip('LANDSLIDE', 'Landslides'),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildNearbyHazardsSection(List<HazardModel> filteredHazards, GeoCoordinates userCoords, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'THREAT TELEMETRY IN PERIMETER',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.6,
+                color: isDark ? Colors.white60 : Colors.black54,
+              ),
+            ),
+            Text(
+              '${filteredHazards.length} Detected',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: filteredHazards.isNotEmpty ? const Color(0xFFDC2626) : const Color(0xFF059669),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (filteredHazards.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF111114) : Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF059669).withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.verified_user_rounded, color: Color(0xFF059669), size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Perimeter Secure',
+                        style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                      ),
+                      Text(
+                        'Zero critical hazards within ${_selectedRadiusKm.toInt()} km radius.',
+                        style: TextStyle(fontSize: 11, color: isDark ? Colors.white60 : Colors.black54),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          ...filteredHazards.take(3).map((h) {
+            final dist = LocationService.distanceBetween(userCoords, h.coordinates);
+            final isCritical = h.category == 'SEVERE_FLOOD' || h.category == 'BLOCKED_ROAD';
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF111114) : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isCritical
+                      ? const Color(0xFFDC2626).withValues(alpha: 0.3)
+                      : (isDark ? const Color(0xFF262626) : const Color(0xFFE5E7EB)),
+                  width: isCritical ? 1.2 : 0.8,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: (isCritical ? const Color(0xFFDC2626) : const Color(0xFF2563EB)).withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isCritical ? Icons.warning_rounded : Icons.info_outline,
+                      color: isCritical ? const Color(0xFFDC2626) : const Color(0xFF2563EB),
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              h.category.replaceAll('_', ' '),
+                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: (isCritical ? const Color(0xFFDC2626) : const Color(0xFF2563EB)).withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '${dist.toInt()}m',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: isCritical ? const Color(0xFFDC2626) : const Color(0xFF2563EB),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          h.ward,
+                          style: TextStyle(fontSize: 11, color: isDark ? Colors.white60 : Colors.black54),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () {
+                      setState(() => _isMapFullScreen = true);
+                      _mapController.move(LatLng(h.coordinates.latitude, h.coordinates.longitude), 15.5);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF202026) : const Color(0xFFF3F4F6),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.near_me_outlined, size: 12),
+                          SizedBox(width: 3),
+                          Text('Focus', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+      ],
+    );
+  }
+
+  Widget _buildQuickTacticalGrid(BuildContext context, bool isDark) {
+    return Row(
+      children: [
+        Expanded(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => FalconVoiceModal.show(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF111114) : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDark ? const Color(0xFF262626) : const Color(0xFFE5E7EB)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDC2626).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.mic, color: Color(0xFFDC2626), size: 18),
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Falcon AI', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
+                        Text('Voice Control', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () {
+              ref.read(bottomNavIndexProvider.notifier).setIndex(2);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF111114) : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDark ? const Color(0xFF262626) : const Color(0xFFE5E7EB)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.bolt, color: Color(0xFF2563EB), size: 18),
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('SOS Strobe', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
+                        Text('Distress Beacon', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategoryController(List<HazardModel> allHazards, List<HazardModel> filteredHazards, LatLng userCenter, bool isDark) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Radar Pill
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            GestureDetector(
+              onTap: _toggleRadius,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF111111) : Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: isDark ? const Color(0xFF262626) : const Color(0xFFE5E7EB)),
+                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.radar, size: 14),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Radius: ${_selectedRadiusKm.toInt()} km (${filteredHazards.length} pins)',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Quick Voice and GPS FABs
+            Row(
+              children: [
+                FloatingActionButton.small(
+                  heroTag: 'fab_falcon_voice',
+                  backgroundColor: const Color(0xFFDC2626),
+                  foregroundColor: Colors.white,
+                  elevation: 3,
+                  tooltip: 'Hey Falcon Voice AI',
+                  onPressed: () => FalconVoiceModal.show(context),
+                  child: const Icon(Icons.mic, size: 18),
+                ),
+                const SizedBox(width: 8),
+                FloatingActionButton.small(
+                  heroTag: 'fab_recenter_gps',
+                  backgroundColor: isDark ? Colors.white : Colors.black,
+                  foregroundColor: isDark ? Colors.black : Colors.white,
+                  elevation: 2,
+                  onPressed: () {
+                    _mapController.move(userCenter, 14.5);
+                  },
+                  child: const Icon(Icons.my_location, size: 18),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        // Category Filter Chips
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _buildFilterChip('ALL', 'All (${allHazards.length})'),
+              _buildFilterChip('SEVERE_FLOOD', 'Floods'),
+              _buildFilterChip('POWER_HAZARD', 'Power Lines'),
+              _buildFilterChip('BLOCKED_ROAD', 'Roads'),
+              _buildFilterChip('FALLEN_TREE', 'Trees'),
+              _buildFilterChip('LANDSLIDE', 'Landslides'),
+              _buildFilterChip('STRUCTURE_DAMAGE', 'Structural'),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
