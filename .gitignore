@@ -22,9 +22,10 @@ ios/Pods/
 .flutter-plugins
 android/.gradle
 android/captures/
-android/gradlew
-android/gradlew.bat
 android/local.properties
+!**/gradle/wrapper/gradle-wrapper.jar
+!**/gradlew
+!**/gradlew.bat
 **/GeneratedPluginRegistrant.dart
 
 # Python
@@ -33,6 +34,7 @@ __pycache__/
 *$py.class
 *.env
 *.env.*
+!*.env.example
 *.env.local
 *.pem
 *.key

@@ -1,11 +1,13 @@
 # DisasterShield: AI-Driven Disaster Response & Hazard Management Platform
 
-[![Competition Dossier](https://img.shields.io/badge/Competition%20Dossier-v6.5%20Master%20Document-crimson.svg)](docs/COMPETITION_MASTER_DOSSIER.md)
-[![Specification Version](https://img.shields.io/badge/Spec-v6.0-blue.svg)](docs/master_engineering_spec.md)
+[![Judges Evaluation Runbook](https://img.shields.io/badge/Judges%20Runbook-60s%20Quick%20Start-success.svg?style=for-the-badge)](JUDGES_RUNBOOK.md)
+[![Competition Dossier](https://img.shields.io/badge/Competition%20Dossier-v6.5%20Master%20Document-crimson.svg?style=for-the-badge)](docs/COMPETITION_MASTER_DOSSIER.md)
 [![Flutter](https://img.shields.io/badge/Flutter-3.35+-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Auth%20%7C%20FreeTier%20DB-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com)
 
-> 🏆 **Competition Master Document**: Read the complete humanitarian, life-critical architectural rationale and 25+ feature breakdown in [docs/COMPETITION_MASTER_DOSSIER.md](docs/COMPETITION_MASTER_DOSSIER.md).
+> 🏆 **Attention Judges & Evaluators**:
+> For the 60-second quick start across Web, Android, Desktop, and Admin Console, plus feature evaluation checklist, see the **[Official Judges' Runbook (JUDGES_RUNBOOK.md)](JUDGES_RUNBOOK.md)**.
+> For the complete humanitarian problem statement, life-critical architectural rationale, and 25+ feature breakdown, see **[docs/COMPETITION_MASTER_DOSSIER.md](docs/COMPETITION_MASTER_DOSSIER.md)**.
 
 **DisasterShield** is an AI-automated disaster response and urban hazard management ecosystem designed to bridge frontline citizens, field response units, and municipal command centers with sub-second situational awareness.
 
