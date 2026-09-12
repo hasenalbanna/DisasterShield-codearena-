@@ -6,11 +6,14 @@ const weatherAi_1 = require("./weatherAi");
 const clusterAi_1 = require("./clusterAi");
 const locationAi_1 = require("./locationAi");
 const riskScoring_1 = require("./riskScoring");
+const antiSpamEngine_1 = require("./antiSpamEngine");
 /**
  * Master Hazard Aggregator AI Engine:
- * Coordinates all 5 AI stages and maps the incident to one of the 4 automated routing channels.
+ * Coordinates all AI sub-stages, anti-spam validation, and maps the incident to one of the 4 automated routing channels.
  */
-async function runHazardAggregatorAi(report, existingReportsInWard) {
+async function runHazardAggregatorAi(report, existingReportsInWard, userReputationScore = 85) {
+    // 0. Anti-Spam, Rate Limiting & False Report Mitigation Check
+    const antiSpamRes = (0, antiSpamEngine_1.evaluateAntiSpam)(report, userReputationScore);
     // 1. Run all sub-pipeline stages
     const [imageRes, weatherRes, clusterRes, locationRes] = await Promise.all([
         (0, imageAi_1.evaluateImageAi)(report),
@@ -20,17 +23,22 @@ async function runHazardAggregatorAi(report, existingReportsInWard) {
     ]);
     // 2. Calculate dynamic risk score
     const riskRes = (0, riskScoring_1.calculateDynamicRiskScore)(report, weatherRes, clusterRes.clusterCount);
-    // 3. Aggregate composite confidence score
+    // 3. Aggregate composite confidence score with anti-spam penalty
     const weatherScore = weatherRes.weatherSupport ? 1.0 : 0.4;
     const rawConfidence = (imageRes.imageConfidence * 0.40) +
         (locationRes.antiSpoofScore * 0.25) +
         (weatherScore * 0.20) +
-        clusterRes.densityBoost;
-    const totalConfidence = Math.min(0.99, Math.max(0.10, Math.round(rawConfidence * 100) / 100));
-    // 4. Automated 4-Channel Routing Logic (Master Spec Section 4.2)
+        clusterRes.densityBoost -
+        antiSpamRes.confidencePenalty;
+    const totalConfidence = Math.min(0.99, Math.max(0.05, Math.round(rawConfidence * 100) / 100));
+    // 4. Automated 4-Channel Routing Logic (Master Spec Section 4.2 & 7.2)
     let assignedStatus = "PUBLISHED";
     let reasoning = "";
-    if (totalConfidence < 0.45) {
+    if (antiSpamRes.isSpam) {
+        assignedStatus = "REJECTED_HOAX";
+        reasoning = `Anti-Spam Filter Triggered: ${antiSpamRes.spamReason}. Quarantined from dispatch and citizen feeds.`;
+    }
+    else if (totalConfidence < 0.45) {
         assignedStatus = "REJECTED_HOAX";
         reasoning = "AI Confidence below 45% threshold. Flagged for manual audit or rejected.";
     }

@@ -9,15 +9,20 @@ import { evaluateWeatherAi } from "./weatherAi";
 import { evaluateClusterAi } from "./clusterAi";
 import { evaluateLocationAi } from "./locationAi";
 import { calculateDynamicRiskScore } from "./riskScoring";
+import { evaluateAntiSpam } from "./antiSpamEngine";
 
 /**
  * Master Hazard Aggregator AI Engine:
- * Coordinates all 5 AI stages and maps the incident to one of the 4 automated routing channels.
+ * Coordinates all AI sub-stages, anti-spam validation, and maps the incident to one of the 4 automated routing channels.
  */
 export async function runHazardAggregatorAi(
   report: RawHazardInput,
-  existingReportsInWard: Array<{ id: string; coordinates: GeoCoordinates; createdAt: string }>
+  existingReportsInWard: Array<{ id: string; coordinates: GeoCoordinates; createdAt: string }>,
+  userReputationScore: number = 85
 ): Promise<AiAnalysisResult> {
+  // 0. Anti-Spam, Rate Limiting & False Report Mitigation Check
+  const antiSpamRes = evaluateAntiSpam(report, userReputationScore);
+
   // 1. Run all sub-pipeline stages
   const [imageRes, weatherRes, clusterRes, locationRes] = await Promise.all([
     evaluateImageAi(report),
@@ -29,21 +34,25 @@ export async function runHazardAggregatorAi(
   // 2. Calculate dynamic risk score
   const riskRes = calculateDynamicRiskScore(report, weatherRes, clusterRes.clusterCount);
 
-  // 3. Aggregate composite confidence score
+  // 3. Aggregate composite confidence score with anti-spam penalty
   const weatherScore = weatherRes.weatherSupport ? 1.0 : 0.4;
   const rawConfidence = 
     (imageRes.imageConfidence * 0.40) +
     (locationRes.antiSpoofScore * 0.25) +
     (weatherScore * 0.20) +
-    clusterRes.densityBoost;
+    clusterRes.densityBoost -
+    antiSpamRes.confidencePenalty;
 
-  const totalConfidence = Math.min(0.99, Math.max(0.10, Math.round(rawConfidence * 100) / 100));
+  const totalConfidence = Math.min(0.99, Math.max(0.05, Math.round(rawConfidence * 100) / 100));
 
-  // 4. Automated 4-Channel Routing Logic (Master Spec Section 4.2)
+  // 4. Automated 4-Channel Routing Logic (Master Spec Section 4.2 & 7.2)
   let assignedStatus: HazardStatus = "PUBLISHED";
   let reasoning = "";
 
-  if (totalConfidence < 0.45) {
+  if (antiSpamRes.isSpam) {
+    assignedStatus = "REJECTED_HOAX";
+    reasoning = `Anti-Spam Filter Triggered: ${antiSpamRes.spamReason}. Quarantined from dispatch and citizen feeds.`;
+  } else if (totalConfidence < 0.45) {
     assignedStatus = "REJECTED_HOAX";
     reasoning = "AI Confidence below 45% threshold. Flagged for manual audit or rejected.";
   } else if (totalConfidence >= 0.45 && totalConfidence < 0.75) {
