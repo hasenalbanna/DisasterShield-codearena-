@@ -1,0 +1,23 @@
+{
+  "name": "disaster-shield-workspace",
+  "version": "1.0.0",
+  "description": "AI-Driven Disaster Response & Urban Hazard Management Platform",
+  "private": true,
+  "scripts": {
+    "web:dev": "npm --prefix apps/web_admin run dev",
+    "web:build": "npm --prefix apps/web_admin run build",
+    "web:lint": "npm --prefix apps/web_admin run lint",
+    "backend:build": "npm --prefix backend/functions run build",
+    "mobile:analyze": "cd apps/mobile && flutter analyze",
+    "mobile:test": "cd apps/mobile && flutter test"
+  },
+  "keywords": [
+    "disaster-response",
+    "hazard-management",
+    "flutter",
+    "firebase",
+    "ai"
+  ],
+  "author": "MRA Hasen Al Banna",
+  "license": "MIT"
+}

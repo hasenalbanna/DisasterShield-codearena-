@@ -1,0 +1,23 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Incident media (photos, voice notes)
+    match /hazards/{hazardId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.resource.size < 25 * 1024 * 1024; // 25MB max
+    }
+    
+    // Field crew post-resolution verification photos
+    match /resolutions/{ticketId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && 
+        (request.auth.token.role == 'admin' || request.auth.token.role == 'crew');
+    }
+    
+    // Emergency SOS voice memos
+    match /sos/{caseId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.resource.size < 10 * 1024 * 1024;
+    }
+  }
+}
