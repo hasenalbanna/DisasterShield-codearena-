@@ -7,7 +7,18 @@ import 'features/voice_sos/presentation/screens/voice_sos_screen.dart';
 import 'features/case_tracker/presentation/screens/case_tracker_screen.dart';
 import 'features/profile/presentation/screens/profile_screen.dart';
 
-void main() {
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint('Firebase initialization warning: $e');
+  }
   runApp(const ProviderScope(child: DisasterShieldApp()));
 }
 

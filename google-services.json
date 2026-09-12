@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "298522328437",
+    "firebase_url": "https://disastershield-a23cf-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "disastershield-a23cf",
+    "storage_bucket": "disastershield-a23cf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:298522328437:android:e8eb3dda5f53765e58273c",
+        "android_client_info": {
+          "package_name": "com.falcon.disastershield"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "298522328437-h56m00fv0023jdcp29qjkjl39pvqpaoj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB98mXf3r_-V3sswt1MkwsqGhDG6WVSh_4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "298522328437-h56m00fv0023jdcp29qjkjl39pvqpaoj.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
