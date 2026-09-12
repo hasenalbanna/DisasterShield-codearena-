@@ -17,9 +17,9 @@ import {
   RefreshCw, 
   Sun, 
   Moon, 
-  CheckCircle, 
   Filter,
-  Truck
+  Truck,
+  Building2
 } from 'lucide-react';
 import { 
   subscribeToHazards, 
@@ -30,6 +30,9 @@ import {
 import { GeospatialCommandMap } from './components/GeospatialCommandMap';
 import { WardTriageQueue } from './components/WardTriageQueue';
 import { DispatchCrewModal } from './components/DispatchCrewModal';
+import { AiAggregatorConsole } from './components/AiAggregatorConsole';
+import { ReliefDeskView } from './components/ReliefDeskView';
+import { CouncilTicketsView } from './components/CouncilTicketsView';
 import type { HazardDocument } from './types/models';
 import './App.css';
 
@@ -143,7 +146,7 @@ const initialHazards: HazardDocument[] = [
 export function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [hazards, setHazards] = useState<HazardDocument[]>(initialHazards);
-  const [activeTab, setActiveTab] = useState<'overview' | 'map' | 'triage' | 'ai' | 'tickets'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'map' | 'triage' | 'ai' | 'relief' | 'tickets'>('overview');
   const [selectedFilter, setSelectedFilter] = useState<string>('ALL');
   const [isFirebaseSynced, setIsFirebaseSynced] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -394,6 +397,19 @@ export function App() {
           </button>
 
           <button 
+            onClick={() => setActiveTab('relief')}
+            style={{ 
+              display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '6px', 
+              background: activeTab === 'relief' ? 'var(--btn-bg)' : 'transparent',
+              color: activeTab === 'relief' ? 'var(--btn-text)' : 'var(--text-secondary)',
+              border: 'none', textAlign: 'left', fontWeight: 600, fontSize: '13px'
+            }}
+          >
+            <Building2 style={{ width: '16px', height: '16px' }} />
+            <span>Relief & Shelters</span>
+          </button>
+
+          <button 
             onClick={() => setActiveTab('tickets')}
             style={{ 
               display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '6px', 
@@ -438,6 +454,7 @@ export function App() {
               {activeTab === 'map' && 'Geospatial Radar & Live Heatmap'}
               {activeTab === 'triage' && 'Ward Incident Triage & Field Dispatch'}
               {activeTab === 'ai' && 'Hazard Aggregator AI Multi-Layer Engine'}
+              {activeTab === 'relief' && 'Municipal Relief Desk & Shelter Allocations'}
               {activeTab === 'tickets' && 'Municipal Authority Work Orders'}
             </h2>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
@@ -676,151 +693,23 @@ export function App() {
 
         {/* TAB 4: AI AGGREGATOR PIPELINE MATRIX */}
         {activeTab === 'ai' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div className="minimal-card" style={{ padding: '24px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                <Cpu style={{ width: '22px', height: '22px' }} />
-                <div>
-                  <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0 }}>
-                    Hazard Aggregator AI Multi-Stage Pipeline
-                  </h3>
-                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                    {"Ingests multi-modal ground evidence and evaluates risk score: Risk(u) = w₁·R_type + w₂·P_risk + w₃·Water_trend"}
-                  </span>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', marginTop: '16px' }}>
-                <div style={{ padding: '16px', borderRadius: '8px', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 700, marginBottom: '4px' }}>1. Image Authenticity</div>
-                  <div style={{ fontSize: '20px', fontWeight: 800, color: '#10B981' }}>98.2% Pass</div>
-                  <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '6px 0 0 0' }}>
-                    MobileNetV2 filters blurry, internet stock photos, or unrelated scenes.
-                  </p>
-                </div>
-
-                <div style={{ padding: '16px', borderRadius: '8px', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 700, marginBottom: '4px' }}>2. DBSCAN Spatial Clustering</div>
-                  <div style={{ fontSize: '20px', fontWeight: 800, color: '#3B82F6' }}>&lt; 200m Radius</div>
-                  <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '6px 0 0 0' }}>
-                    Merges co-located citizen reports into unified incident clusters.
-                  </p>
-                </div>
-
-                <div style={{ padding: '16px', borderRadius: '8px', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 700, marginBottom: '4px' }}>3. Weather & Sensor AI</div>
-                  <div style={{ fontSize: '20px', fontWeight: 800, color: '#F59E0B' }}>14 Gauge Correlated</div>
-                  <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '6px 0 0 0' }}>
-                    Cross-references precipitation radar and river sensor surge rates.
-                  </p>
-                </div>
-
-                <div style={{ padding: '16px', borderRadius: '8px', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 700, marginBottom: '4px' }}>4. 4-Channel Decision</div>
-                  <div style={{ fontSize: '20px', fontWeight: 800 }}>Auto-Routed</div>
-                  <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '6px 0 0 0' }}>
-                    Need Info (45-75%), Published (&gt;75%), Area Alert, Council Ticket.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Decision Breakdown Table */}
-            <div className="minimal-card" style={{ padding: '24px' }}>
-              <h4 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '14px' }}>
-                Recent Automated AI Decisions
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {hazards.map((h) => (
-                  <div
-                    key={h.hazardId}
-                    style={{
-                      padding: '12px 16px',
-                      borderRadius: '8px',
-                      backgroundColor: 'var(--bg-secondary)',
-                      border: '1px solid var(--border-subtle)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      fontSize: '12px',
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontWeight: 700 }}>{h.ward} ({h.hazardId})</div>
-                      <div style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '2px' }}>
-                        "{h.aiAnalysis?.reasoning}"
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700 }}>
-                        Score: {h.aiAnalysis?.urgencyScore ?? 7}/10
-                      </span>
-                      {getStatusBadge(h.status)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <AiAggregatorConsole
+            hazards={hazards}
+            onStatusChange={handleStatusChange}
+          />
         )}
 
-        {/* TAB 5: COUNCIL TICKETS */}
-        {activeTab === 'tickets' && (
-          <div className="minimal-card" style={{ padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <div>
-                <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0 }}>
-                  Municipal Council Work Orders & Infrastructure Tickets
-                </h3>
-                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
-                  Auto-routed to Electrical Grid Authority, Municipal Drainage Works, and Urban Forestry
-                </p>
-              </div>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>
-                {hazards.filter(h => h.status === 'COUNCIL_TICKET').length} Assigned Tickets
-              </span>
-            </div>
+        {/* TAB 5: RELIEF DESK & SHELTER ALLOCATIONS */}
+        {activeTab === 'relief' && (
+          <ReliefDeskView />
+        )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {hazards.filter(h => h.status === 'COUNCIL_TICKET').map((h) => (
-                <div
-                  key={h.hazardId}
-                  style={{
-                    padding: '16px',
-                    borderRadius: '8px',
-                    backgroundColor: 'var(--bg-secondary)',
-                    border: '1px solid var(--border-subtle)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                      <span style={{ fontWeight: 800, fontSize: '13px' }}>WO-{h.hazardId.toUpperCase()}</span>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>• {h.ward}</span>
-                    </div>
-                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>
-                      Classification: <strong>{h.category.replace('_', ' ')}</strong> — {h.aiAnalysis?.reasoning}
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '11px', padding: '4px 8px', borderRadius: '4px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-                      Assigned: Municipal Engineering Division
-                    </span>
-                    <button
-                      onClick={() => handleStatusChange(h.hazardId, 'RESOLVED')}
-                      className="btn-secondary"
-                      style={{ padding: '6px 12px', fontSize: '11px' }}
-                    >
-                      <CheckCircle style={{ width: '12px', height: '12px' }} />
-                      <span>Complete Work Order</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {/* TAB 6: COUNCIL WORK ORDERS & TICKETING */}
+        {activeTab === 'tickets' && (
+          <CouncilTicketsView
+            hazards={hazards}
+            onStatusChange={handleStatusChange}
+          />
         )}
       </main>
 
